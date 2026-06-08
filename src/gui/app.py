@@ -2,11 +2,15 @@ import os
 import tkinter as tk
 from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
+import logging
 
 from src.core.save_manager import load_save, save_game_data
 from src.core.enums import NOMES_SKILLS
 from src.core.character import get_character_summary, update_character, cheat_max_all_skills
 from src.core.inventory import get_equipment_summary, get_sprite_coordinates, ITEM_DATABASE
+
+# Initialize the logger instance for this specific UI module
+logger = logging.getLogger("gui.app")
 
 class EditorApp:
     def __init__(self, root):
@@ -18,6 +22,7 @@ class EditorApp:
         self.raw_save_data = None
         self.selected_slot = 0
         
+        self.image_references = {}
         self.attr_vars = {}
         self.skill_vars = {}
         self.equipment_slots_ui = [] # Holds the labels displaying item icons
@@ -30,23 +35,54 @@ class EditorApp:
         self.create_widgets()
 
     def load_spritesheet(self):
-        """Loads the items PNG image using Pillow."""
-        assets_path = os.path.join("assets", "image_2222a2.png")
-        if os.path.exists(assets_path):
-            try:
-                self.spritesheet = Image.open(assets_path)
-            except Exception as e:
-                print(f"Warning: Could not open spritesheet image: {e}")
+            """Loads the items PNG image using Pillow."""
+            assets_path = os.path.join("assets", "image_2222a2.png")
+            if os.path.exists(assets_path):
+                try:
+                    self.spritesheet = Image.open(assets_path)
+                    logger.info("Spritesheet loaded correctly from %s. Size: %s", assets_path, self.spritesheet.size)
+                except Exception as e:
+                    logger.error("Could not open spritesheet image: %s", e)
+            else:
+                logger.critical("The file %s does not exist in this computer's directory!", assets_path)
 
     def get_item_icon(self, sprite_index: int) -> ImageTk.PhotoImage:
-        """Cuts out a 64x64 sub-image from the spritesheet and prepares it for Tkinter."""
-        if not self.spritesheet:
-            # Fallback to a blank transparent image block if asset is missing
-            return ImageTk.PhotoImage(Image.new("RGBA", (64, 64), (40, 40, 40, 255)))
-        
-        coords = get_sprite_coordinates(sprite_index)
-        cropped_img = self.spritesheet.crop(coords)
-        return ImageTk.PhotoImage(cropped_img)
+            """
+            Extracts a single 32x32 item icon from the sheet, removes the cyan background, 
+            and updates the reference for UI scaling.
+            """
+            if not self.spritesheet:
+                # Fallback placeholder frame if asset sheet is missing
+                return ImageTk.PhotoImage(Image.new("RGBA", (40, 40), (34, 34, 34, 255)))
+                
+            # 1. FIXED GRID MATH: Image contains 32x32px items over 16 columns within 514x514 sheet
+            columns = 16
+            sprite_size = 32
+            row = sprite_index // columns
+            col = sprite_index % columns
+            
+            left = col * sprite_size
+            top = row * sprite_size
+            right = left + sprite_size
+            bottom = top + sprite_size
+            
+            # Crop the unique isolated item area from the source sheet
+            cropped_img = self.spritesheet.crop((left, top, right, bottom)).convert("RGBA")
+            
+            # 2. CHROMA KEY FILTER: Dynamically replace pure cyan (0, 255, 255) pixels with transparent alpha channel
+            pixels = cropped_img.getdata()
+            new_pixels = []
+            for p in pixels:
+                # Match pure cyan chroma or close variations
+                if p[0] == 0 and p[1] >= 250 and p[2] >= 250:
+                    new_pixels.append((0, 0, 0, 0)) # Fully transparent pixel
+                else:
+                    new_pixels.append(p)
+            cropped_img.putdata(new_pixels)
+            
+            # Resize smoothly to fit nicely into the UI slot squares
+            final_img = cropped_img.resize((44, 44), Image.Resampling.NEAREST)
+            return ImageTk.PhotoImage(final_img)
 
     def setup_styles(self):
         self.style = ttk.Style()
@@ -74,7 +110,7 @@ class EditorApp:
         
         # TAB 1: Avatar Engine
         self.char_tab = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(self.char_tab, text="Avatar Editor")
+        self.notebook.add(self.char_tab, text="Player Data")
         
         self.left_frame = ttk.LabelFrame(self.char_tab, text=" Base Attributes ", padding=10)
         self.left_frame.pack(side="left", fill="both", expand=True, padx=5)
@@ -87,7 +123,7 @@ class EditorApp:
 
         # TAB 2: Equipment Matrix (The Insane Part!)
         self.equip_tab = ttk.Frame(self.notebook, padding=10)
-        self.notebook.add(self.equip_tab, text="Equipment Matrix")
+        self.notebook.add(self.equip_tab, text="Equipped Items")
         self.draw_equipment_grid()
 
         # --- Footer ---
@@ -215,29 +251,37 @@ class EditorApp:
             messagebox.showerror("Fatal Error", f"Failed to process save data: {e}")
 
     def refresh_equipment_ui(self):
-        """Re-reads the save dictionary array and updates the item images on the grid screen."""
-        data_to_parse = self.raw_save_data if self.raw_save_data is not None else {}
-        equip_summary = get_equipment_summary(data_to_parse)
-        
-        # Flush the old icon memory cache to clean leakage space
-        self.loaded_icons_cache = []
-        
-        for item in equip_summary:
-            idx = item["slot_index"]
-            label_widget = self.equipment_slots_ui[idx]
+            """
+            Re-reads the master inventory save structure, clears old text fragments, 
+            and updates the item graphics on the screen interactively.
+            """
+            data_to_parse = self.raw_save_data if self.raw_save_data is not None else {}
+            from src.core.inventory import get_equipment_summary
+            equip_summary = get_equipment_summary(data_to_parse)
             
-            if item["is_empty"]:
-                label_widget.config(image="", text="Empty", bg="#222")
-            else:
-                photo_icon = self.get_item_icon(item["sprite_idx"])
-                self.loaded_icons_cache.append(photo_icon) # Anchor reference protection from garbage collector
+            self.loaded_icons_cache.clear()
+            
+            for item in equip_summary:
+                idx = item["slot_index"]
+                label_widget = self.equipment_slots_ui[idx]
                 
-                label_widget.config(image=photo_icon, bg="#1a1a1a")
+                # Using debug level so it can be completely hidden when production mode is toggled
+                logger.debug("Slot UI #%d (%s) | Is Empty? %s | Sprite Index: %d", 
+                            idx, item['slot_name'], item['is_empty'], item['sprite_idx'])
                 
-                # Bind hover events safely capturing the current explicit item loop name payload
-                label_widget.bind("<Enter>", lambda e, name=item["objectName"]: self.root.title(f"Item: {name}"))
-                label_widget.bind("<Leave>", lambda e: self.root.title("Ultima Underworld Unity - Save Editor"))
-
+                if item["is_empty"]:
+                    label_widget.config(image="", text="Empty", bg="#222")
+                    label_widget.image = None
+                else:
+                    photo_icon = self.get_item_icon(item["sprite_idx"])
+                    self.loaded_icons_cache.append(photo_icon)
+                    
+                    label_widget.config(image=photo_icon, text="", bg="#1a1a1a")
+                    label_widget.image = photo_icon
+                    
+                    label_widget.bind("<Enter>", lambda e, name=item["objectName"]: self.root.title(f"Item: {name}"))
+                    label_widget.bind("<Leave>", lambda e: self.root.title("Ultima Underworld Unity - Save Editor"))
+                    
     def on_equipment_slot_clicked(self, slot_index):
         """Opens a visual modal pop-up list allowing selection of an item to spawn inside that slot."""
         if not self.raw_save_data: return
