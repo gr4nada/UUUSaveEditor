@@ -10,7 +10,15 @@ def run_manual_test():
         # 1. Attempting to decompress and load the slot
         print(r"[*] Loading file from AppData\LocalLow...")
         raw_data = load_save(target_slot)
-        
+        p_data = raw_data['playerData']
+
+        print("--- AVAILABLE KEYS IN PLAYER DATA ---")
+        for key in p_data.keys():
+            # Se a chave parecer relacionada a inventário ou itens, vamos dar um destaque
+            if any(word in key.lower() for word in ["item", "inv", "equip", "slot", "wear", "hand"]):
+                print(f"[FOUND ITEM KEY] -> {key}: {p_data[key]}")
+            else:
+                print(f"Standard Key: {key}")
         # 2. Extracting character details using our engine
         summary = get_character_summary(raw_data)
         print("[+] Save file loaded successfully!")
