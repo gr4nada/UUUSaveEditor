@@ -1,1 +1,4 @@
 Pillow>=10.0.0
+# Tools Fetch_wiki_icons
+requests
+beautifulsoup4

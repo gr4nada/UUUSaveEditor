@@ -1,3 +1,4 @@
+# src/gui/app.py
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -7,89 +8,72 @@ import logging
 from src.core.save_manager import load_save, save_game_data
 from src.core.enums import NOMES_SKILLS
 from src.core.character import get_character_summary, update_character, cheat_max_all_skills
-from src.core.inventory import get_equipment_summary, get_sprite_coordinates, ITEM_DATABASE
+from src.core.inventory import get_equipment_summary
 
-# Initialize the logger instance for this specific UI module
+# Modularized Local Imports
+from src.gui.constants import UNDERWORLD_CLASSES, QUEST_FLAGS
+from src.gui.dialogs import open_equipment_tuning_dialog
+
 logger = logging.getLogger("gui.app")
 
 class EditorApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Ultima Underworld Unity - Save Editor")
-        self.root.geometry("800x700")  # Made slightly wider to fit the gorgeous paper layout
+        self.root.geometry("950x800")
         self.root.resizable(False, False)
         
         self.raw_save_data = None
         self.selected_slot = 0
         
-        self.image_references = {}
         self.attr_vars = {}
         self.skill_vars = {}
-        self.equipment_slots_ui = [] # Holds the labels displaying item icons
-        self.loaded_icons_cache = [] # Prevents Tkinter garbage collection from wiping cropped assets
-        
-        self.spritesheet = None
-        self.load_spritesheet()
+        self.quest_vars = {}
+        self.equipment_slots_ui = []
+        self.loaded_icons_cache = []
         
         self.setup_styles()
         self.create_widgets()
 
-    def load_spritesheet(self):
-            """Loads the items PNG image using Pillow."""
-            assets_path = os.path.join("assets", "image_2222a2.png")
-            if os.path.exists(assets_path):
-                try:
-                    self.spritesheet = Image.open(assets_path)
-                    logger.info("Spritesheet loaded correctly from %s. Size: %s", assets_path, self.spritesheet.size)
-                except Exception as e:
-                    logger.error("Could not open spritesheet image: %s", e)
-            else:
-                logger.critical("The file %s does not exist in this computer's directory!", assets_path)
-
-    def get_item_icon(self, sprite_index: int) -> ImageTk.PhotoImage:
-            """
-            Extracts a single 32x32 item icon from the sheet, removes the cyan background, 
-            and updates the reference for UI scaling.
-            """
-            if not self.spritesheet:
-                # Fallback placeholder frame if asset sheet is missing
-                return ImageTk.PhotoImage(Image.new("RGBA", (40, 40), (34, 34, 34, 255)))
+    def load_slot_icon(self, object_type: int):
+        """Loads and processes individual slot icons, handling aspect ratio and filters."""
+        icon_path = os.path.join("assets", "icons", f"{object_type}.png")
+        display_size = (44, 44)
+        
+        if object_type != 0 and os.path.exists(icon_path):
+            try:
+                img = Image.open(icon_path).convert("RGBA")
+                datas = img.getdata()
+                new_data = []
+                for item in datas:
+                    if item[0] >= 245 and item[1] >= 245 and item[2] >= 245:
+                        new_data.append((0, 0, 0, 0))
+                    else:
+                        new_data.append(item)
+                img.putdata(new_data)
                 
-            # 1. FIXED GRID MATH: Image contains 32x32px items over 16 columns within 514x514 sheet
-            columns = 16
-            sprite_size = 32
-            row = sprite_index // columns
-            col = sprite_index % columns
+                img.thumbnail(display_size, Image.Resampling.NEAREST)
+                canvas = Image.new("RGBA", display_size, (0, 0, 0, 0))
+                
+                x_offset = (display_size[0] - img.width) // 2
+                y_offset = (display_size[1] - img.height) // 2
+                canvas.paste(img, (x_offset, y_offset), img)
+                return ImageTk.PhotoImage(canvas)
+            except Exception as e:
+                logger.error("Error processing icon ID %d: %s", object_type, e)
+                img = Image.new("RGBA", display_size, (34, 34, 34, 255))
+        else:
+            img = Image.new("RGBA", display_size, (34, 34, 34, 255))
             
-            left = col * sprite_size
-            top = row * sprite_size
-            right = left + sprite_size
-            bottom = top + sprite_size
-            
-            # Crop the unique isolated item area from the source sheet
-            cropped_img = self.spritesheet.crop((left, top, right, bottom)).convert("RGBA")
-            
-            # 2. CHROMA KEY FILTER: Dynamically replace pure cyan (0, 255, 255) pixels with transparent alpha channel
-            pixels = cropped_img.getdata()
-            new_pixels = []
-            for p in pixels:
-                # Match pure cyan chroma or close variations
-                if p[0] == 0 and p[1] >= 250 and p[2] >= 250:
-                    new_pixels.append((0, 0, 0, 0)) # Fully transparent pixel
-                else:
-                    new_pixels.append(p)
-            cropped_img.putdata(new_pixels)
-            
-            # Resize smoothly to fit nicely into the UI slot squares
-            final_img = cropped_img.resize((44, 44), Image.Resampling.NEAREST)
-            return ImageTk.PhotoImage(final_img)
+        return ImageTk.PhotoImage(img)
 
     def setup_styles(self):
         self.style = ttk.Style()
         self.style.theme_use("clam")
 
     def create_widgets(self):
-        # --- Top Header: File / Slot Manager ---
+        """Builds all tabs and major interface containers."""
+        # --- Top Header ---
         top_frame = ttk.LabelFrame(self.root, text=" Save Slot ", padding=10)
         top_frame.pack(fill="x", padx=15, pady=10)
         
@@ -104,27 +88,32 @@ class EditorApp:
         self.char_lbl = ttk.Label(top_frame, text="No character loaded", font=("Arial", 10, "bold"))
         self.char_lbl.pack(side="right", padx=15)
 
-        # --- Central Tabs System ---
+        # --- Tab System ---
         self.notebook = ttk.Notebook(self.root)
         self.notebook.pack(fill="both", expand=True, padx=15, pady=5)
         
-        # TAB 1: Avatar Engine
+        # TAB 1: Player Stats
         self.char_tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.char_tab, text="Player Data")
         
-        self.left_frame = ttk.LabelFrame(self.char_tab, text=" Base Attributes ", padding=10)
+        self.left_frame = ttk.LabelFrame(self.char_tab, text=" Identity & Attributes ", padding=10)
         self.left_frame.pack(side="left", fill="both", expand=True, padx=5)
         
-        self.right_frame = ttk.LabelFrame(self.char_tab, text=" Skills Matrix (19) ", padding=10)
+        self.right_frame = ttk.LabelFrame(self.char_tab, text=" Skills Matrix ", padding=10)
         self.right_frame.pack(side="right", fill="both", expand=True, padx=5)
         
         self.draw_attribute_fields()
         self.draw_skill_fields()
 
-        # TAB 2: Equipment Matrix (The Insane Part!)
+        # TAB 2: Equipment
         self.equip_tab = ttk.Frame(self.notebook, padding=10)
         self.notebook.add(self.equip_tab, text="Equipped Items")
         self.draw_equipment_grid()
+
+        # TAB 3: Quests
+        self.quest_tab = ttk.Frame(self.notebook, padding=10)
+        self.notebook.add(self.quest_tab, text="Quest Flags Engine")
+        self.draw_quest_tab()
 
         # --- Footer ---
         footer_frame = ttk.Frame(self.root, padding=10)
@@ -137,19 +126,77 @@ class EditorApp:
         self.save_btn.pack(side="right", padx=15, ipady=3)
 
     def draw_attribute_fields(self):
+        canvas = tk.Canvas(self.left_frame, borderwidth=0, highlightthickness=0)
+        scroll = ttk.Scrollbar(self.left_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+        scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scroll.set)
+        canvas.pack(side="left", fill="both", expand=True)
+        scroll.pack(side="right", fill="y")
+
+        ttk.Label(scrollable_frame, text="Character Identity", font=("Arial", 9, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", pady=5)
+        
+        ttk.Label(scrollable_frame, text="Player Name:").grid(row=1, column=0, sticky="w", pady=3)
+        self.var_name = tk.StringVar()
+        self.ent_name = ttk.Entry(scrollable_frame, textvariable=self.var_name, state="disabled", width=16)
+        self.ent_name.grid(row=1, column=1, sticky="w", pady=3)
+
+        ttk.Label(scrollable_frame, text="Player Class:").grid(row=2, column=0, sticky="w", pady=3)
+        self.combo_class = ttk.Combobox(scrollable_frame, values=UNDERWORLD_CLASSES, state="disabled", width=14)
+        self.combo_class.grid(row=2, column=1, sticky="w", pady=3)
+
+        ttk.Label(scrollable_frame, text="Gender:").grid(row=3, column=0, sticky="w", pady=3)
+        self.combo_gender = ttk.Combobox(scrollable_frame, values=["Male", "Female"], state="disabled", width=14)
+        self.combo_gender.grid(row=3, column=1, sticky="w", pady=3)
+
+        ttk.Label(scrollable_frame, text="Dominant Hand:").grid(row=4, column=0, sticky="w", pady=3)
+        self.combo_hand = ttk.Combobox(scrollable_frame, values=["Right-Handed", "Left-Handed"], state="disabled", width=14)
+        self.combo_hand.grid(row=4, column=1, sticky="w", pady=3)
+
+        ttk.Label(scrollable_frame, text="Portrait ID (0-31):").grid(row=5, column=0, sticky="w", pady=3)
+        self.var_portrait = tk.StringVar()
+        self.ent_portrait = ttk.Entry(scrollable_frame, textvariable=self.var_portrait, state="disabled", width=6)
+        self.ent_portrait.grid(row=5, column=1, sticky="w", pady=3)
+
+        ttk.Separator(scrollable_frame, orient="horizontal").grid(row=6, column=0, columnspan=2, sticky="ew", pady=10)
+        ttk.Label(scrollable_frame, text="Attributes & Vitals", font=("Arial", 9, "bold")).grid(row=7, column=0, columnspan=2, sticky="w", pady=5)
+
         fields = [
             ("charLevel", "Level:"), ("exp", "Experience (EXP):"),
+            ("strength", "Strength (STR):"), ("intellect", "Intellect (INT):"), ("dexterity", "Dexterity (DEX):"),
             ("hp", "Health Points (HP):"), ("vitality", "Max Vitality:"),
             ("mana", "Current Mana:"), ("maxMana", "Max Mana:"),
-            ("strength", "Strength (STR):"), ("dexterity", "Dexterity (DEX):"),
-            ("intellect", "Intellect (INT):"), ("skillPoints", "Unspent Skill Points:")
+            ("skillPoints", "Unspent Skill Points:")
         ]
-        for idx, (key, label_text) in enumerate(fields):
-            ttk.Label(self.left_frame, text=label_text).grid(row=idx, column=0, sticky="w", pady=4, padx=5)
+        
+        current_row = 8
+        for key, label_text in fields:
+            ttk.Label(scrollable_frame, text=label_text).grid(row=current_row, column=0, sticky="w", pady=3)
             var = tk.StringVar()
-            entry = ttk.Entry(self.left_frame, textvariable=var, state="disabled", width=12)
-            entry.grid(row=idx, column=1, sticky="w", pady=4, padx=5)
+            entry = ttk.Entry(scrollable_frame, textvariable=var, state="disabled", width=12)
+            entry.grid(row=current_row, column=1, sticky="w", pady=3)
             self.attr_vars[key] = (var, entry)
+            current_row += 1
+
+        ttk.Separator(scrollable_frame, orient="horizontal").grid(row=current_row, column=0, columnspan=2, sticky="ew", pady=10)
+        current_row += 1
+
+        ttk.Label(scrollable_frame, text="Survival States", font=("Arial", 9, "bold")).grid(row=current_row, column=0, columnspan=2, sticky="w", pady=5)
+        current_row += 1
+
+        survival_fields = [
+            ("poison", "Poison Level:"), ("hunger", "Hunger Level:"),
+            ("fatigue", "Fatigue Level:"), ("drunkenness", "Drunkenness Level:")
+        ]
+
+        for key, label_text in survival_fields:
+            ttk.Label(scrollable_frame, text=label_text).grid(row=current_row, column=0, sticky="w", pady=3)
+            var = tk.StringVar()
+            entry = ttk.Entry(scrollable_frame, textvariable=var, state="disabled", width=12)
+            entry.grid(row=current_row, column=1, sticky="w", pady=3)
+            self.attr_vars[key] = (var, entry)
+            current_row += 1
 
     def draw_skill_fields(self):
         canvas = tk.Canvas(self.right_frame, borderwidth=0, highlightthickness=0)
@@ -169,179 +216,157 @@ class EditorApp:
             self.skill_vars[skill_name] = (var, entry)
 
     def draw_equipment_grid(self):
-        """Creates the grid blueprint mirroring the paper doll equipment slots layout."""
-        # Main Canvas mimicking the inventory box container
         self.inventory_canvas = tk.Canvas(self.equip_tab, width=550, height=400, bg="#2b2b2b", highlightthickness=1, highlightbackground="#444")
         self.inventory_canvas.pack(pady=20)
         
-        # Draw a sleek center rectangle simulating the avatar silhouette background
         self.inventory_canvas.create_rectangle(210, 50, 340, 350, fill="#1f1f1f", outline="#555")
         self.inventory_canvas.create_text(275, 200, text="AVATAR", fill="#444", font=("Arial", 16, "bold"))
 
-        # Define grid coordinates (X, Y) inside the canvas container for each slot
-        # Ordering: Light, Head, Neck, Right Hand, Chest, Left Hand, Gloves, Ring 1, Legs, Ring 2, Boots
         self.slot_positions = [
-            (80,  60),  # Light Source
-            (243, 60),  # Head
-            (400, 60),  # Neck
-            (80,  160), # Right Hand (Weapon)
-            (243, 150), # Chest (Armor)
-            (400, 160), # Left Hand (Shield)
-            (80,  260), # Gloves
-            (145, 110), # Ring 1
-            (243, 240), # Legs
-            (335, 110), # Ring 2
-            (243, 320)  # Boots
+            (80,  60), (243, 60), (400, 60), (80,  160), (243, 150),
+            (400, 160), (80,  260), (145, 110), (243, 240), (335, 110), (243, 320)
         ]
-        
-        slot_names = [
-            "Light Source", "Head", "Neck", "Right Hand", "Chest", 
-            "Left Hand", "Gloves", "Ring 1", "Legs", "Ring 2", "Boots"
-        ]
+        slot_names = ["Light Source", "Head", "Neck", "Right Hand", "Chest", "Left Hand", "Gloves", "Ring 1", "Legs", "Ring 2", "Boots"]
 
-        # Draw empty template item frames
         for idx, (x, y) in enumerate(self.slot_positions):
-            # Label background block
             lbl_bg = tk.Label(self.inventory_canvas, bg="#111", width=9, height=4, bd=2, relief="groove")
             self.inventory_canvas.create_window(x + 32, y + 32, window=lbl_bg)
             
-            # Label container that will hold the live graphical images
             lbl_img = tk.Label(self.inventory_canvas, bg="#222", text="Empty", fg="#666")
             self.inventory_canvas.create_window(x + 32, y + 32, window=lbl_img)
             
-            # Label title above slot
             self.inventory_canvas.create_text(x + 32, y - 10, text=slot_names[idx], fill="#bbb", font=("Arial", 8, "bold"))
-            
-            # Bind click event for swapping items visually
             lbl_img.bind("<Button-1>", lambda e, slot=idx: self.on_equipment_slot_clicked(slot))
-            
             self.equipment_slots_ui.append(lbl_img)
 
-    # --- UI Event Handlers ---
+    def draw_quest_tab(self):
+        lbl_info = ttk.Label(self.quest_tab, text="Stygian Abyss Progression Flags (EQuestFlag)", font=("Arial", 11, "bold"))
+        lbl_info.pack(pady=10)
+
+        container_frame = ttk.LabelFrame(self.quest_tab, text=" Active State Mutators ", padding=15)
+        container_frame.pack(fill="both", expand=True, padx=10, pady=5)
+
+        for idx, q in enumerate(QUEST_FLAGS):
+            flag_name = q["flag"]
+            var = tk.BooleanVar(value=False)
+            self.quest_vars[flag_name] = var
+            
+            display_text = f"[{q['floor']}] {flag_name}"
+            chk = ttk.Checkbutton(container_frame, text=display_text, variable=var, state="disabled")
+            
+            row = idx % 8
+            col = idx // 8
+            chk.grid(row=row, column=col, sticky="w", padx=20, pady=8)
+            
+            chk.bind("<Enter>", lambda e, d=q["desc"]: self.root.title(f"Quest Info: {d}"))
+            chk.bind("<Leave>", lambda e: self.root.title("Ultima Underworld Unity - Save Editor"))
 
     def on_load_clicked(self):
         self.selected_slot = self.slot_combo.current()
         try:
             self.raw_save_data = load_save(self.selected_slot)
-            
-            # 1. Populate Character Tab Data
             summary = get_character_summary(self.raw_save_data)
-            name = summary["attributes"]["playerName"]
-            char_class = summary["attributes"]["playerClass"]
-            self.char_lbl.config(text=f"Avatar: {name} ({char_class})")
+            attrs = summary["attributes"]
+            
+            self.ent_name.config(state="normal")
+            self.var_name.set(str(attrs.get("playerName", "Avatar")))
+            
+            self.combo_class.config(state="readonly")
+            self.combo_class.set(attrs.get("playerClass", "Fighter") if attrs.get("playerClass") in UNDERWORLD_CLASSES else "Fighter")
+                
+            self.combo_gender.config(state="readonly")
+            self.combo_gender.set("Female" if attrs.get("female", False) else "Male")
+            
+            self.combo_hand.config(state="readonly")
+            self.combo_hand.set("Left-Handed" if attrs.get("leftHanded", False) else "Right-Handed")
+            
+            self.ent_portrait.config(state="normal")
+            self.var_portrait.set(str(attrs.get("portrait", 0)))
             
             for key, (var, entry) in self.attr_vars.items():
                 entry.config(state="normal")
-                var.set(str(summary["attributes"].get(key, 0)))
+                var.set(str(attrs.get(key, 0)))
                 
             for skill_name, (var, entry) in self.skill_vars.items():
                 entry.config(state="normal")
                 var.set(str(summary["skills"].get(skill_name, 0)))
+
+            quests_state = self.raw_save_data.get("quest_flags", {})
+            for q in QUEST_FLAGS:
+                self.quest_vars[q["flag"]].set(quests_state.get(q["flag"], False))
                 
-            # 2. Populate Equipment Tab Data (Slices and renders pictures!)
+            for child in self.quest_tab.winfo_children():
+                for chk in child.winfo_children():
+                    if isinstance(chk, ttk.Checkbutton): chk.config(state="normal")
+                
             self.refresh_equipment_ui()
-                
             self.save_btn.config(state="normal")
             self.skills_cheat_btn.config(state="normal")
-            messagebox.showinfo("Success", f"Slot {self.selected_slot} data compiled successfully!")
-            
-        except FileNotFoundError as e:
-            messagebox.showerror("File Not Found", str(e))
+            self.char_lbl.config(text=f"Avatar: {self.var_name.get()} ({self.combo_class.get()})")
+            messagebox.showinfo("Success", f"Slot {self.selected_slot} compiled into workspace successfully!")
         except Exception as e:
             messagebox.showerror("Fatal Error", f"Failed to process save data: {e}")
 
     def refresh_equipment_ui(self):
-            """
-            Re-reads the master inventory save structure, clears old text fragments, 
-            and updates the item graphics on the screen interactively.
-            """
-            data_to_parse = self.raw_save_data if self.raw_save_data is not None else {}
-            from src.core.inventory import get_equipment_summary
-            equip_summary = get_equipment_summary(data_to_parse)
+        data_to_parse = self.raw_save_data if self.raw_save_data is not None else {}
+        equip_summary = get_equipment_summary(data_to_parse)
+        self.loaded_icons_cache.clear()
+        
+        for item in equip_summary:
+            idx = item["slot_index"]
+            label_widget = self.equipment_slots_ui[idx]
+            obj_type = item["objectType"]
             
-            self.loaded_icons_cache.clear()
-            
-            for item in equip_summary:
-                idx = item["slot_index"]
-                label_widget = self.equipment_slots_ui[idx]
-                
-                # Using debug level so it can be completely hidden when production mode is toggled
-                logger.debug("Slot UI #%d (%s) | Is Empty? %s | Sprite Index: %d", 
-                            idx, item['slot_name'], item['is_empty'], item['sprite_idx'])
-                
-                if item["is_empty"]:
-                    label_widget.config(image="", text="Empty", bg="#222")
-                    label_widget.image = None
-                else:
-                    photo_icon = self.get_item_icon(item["sprite_idx"])
-                    self.loaded_icons_cache.append(photo_icon)
-                    
-                    label_widget.config(image=photo_icon, text="", bg="#1a1a1a")
-                    label_widget.image = photo_icon
-                    
-                    label_widget.bind("<Enter>", lambda e, name=item["objectName"]: self.root.title(f"Item: {name}"))
-                    label_widget.bind("<Leave>", lambda e: self.root.title("Ultima Underworld Unity - Save Editor"))
-                    
-    def on_equipment_slot_clicked(self, slot_index):
-        """Opens a visual modal pop-up list allowing selection of an item to spawn inside that slot."""
-        if not self.raw_save_data: return
-        
-        # 1. Toplevel modal window initialization
-        popup = tk.Toplevel(self.root)
-        popup.title(f"Change Equipment - Slot {slot_index}")
-        popup.geometry("300x400")
-        popup.transient(self.root)
-        popup.grab_set()
-        
-        ttk.Label(popup, text="Select new item to inject:", font=("Arial", 10, "bold")).pack(pady=10)
-        
-        # 2. Listbox container generation within the popup scope
-        popup_listbox = tk.Listbox(popup, font=("Arial", 10))
-        popup_listbox.pack(fill="both", expand=True, padx=10, pady=5)
-        
-        # Populate Listbox UI with available elements from our database matrix
-        available_items = list(ITEM_DATABASE.items())
-        for code, info in available_items:
-            popup_listbox.insert(tk.END, f"{info['name']} (ID: {code})")
-            
-        # 3. Selection routine callback (Declaring after popup_listbox definition for proper variable scoping)
-        def confirm_selection():
-            selection = popup_listbox.curselection()
-            if selection:
-                idx = selection[0]
-                selected_code, selected_info = available_items[idx]
-                
-                # Check explicitly to satisfy static type checkers and clear the assignment warning
-                if self.raw_save_data is None:
-                    popup.destroy()
-                    return
-                
-                # Directly mutate the dynamic object list inside the target save dictionary
-                from src.core.inventory import update_equipped_item
-                update_equipped_item(self.raw_save_data, slot_index, selected_code, selected_info["name"], selected_info["type_name"])
-                
-                # Re-render the graphical equipment grid view
-                self.refresh_equipment_ui()
-                popup.destroy()
-                messagebox.showinfo("Injected", f"Successfully spawned {selected_info['name']} into slot!")
+            if item["is_empty"] or obj_type == 0:
+                label_widget.config(image="", text="Empty", bg="#222")
+                label_widget.image = None
             else:
-                messagebox.showwarning("Selection Error", "Please select an item from the list first.")
-        # 4. Command trigger button execution
-        ttk.Button(popup, text="Equip Item", command=confirm_selection).pack(pady=10)  
+                photo_icon = self.load_slot_icon(obj_type)
+                self.loaded_icons_cache.append(photo_icon)
+                label_widget.config(image=photo_icon, text="", bg="#1a1a1a")
+                label_widget.image = photo_icon
+                
+                spell_str = f" | Magic: {item['enchantment']}" if item.get("enchantment") else ""
+                label_widget.bind("<Enter>", lambda e, n=item["objectName"], s=spell_str: self.root.title(f"Item: {n}{s}"))
+                label_widget.bind("<Leave>", lambda e: self.root.title("Ultima Underworld Unity - Save Editor"))
+
+    def on_equipment_slot_clicked(self, slot_index):
+        if self.raw_save_data is None:
+            messagebox.showwarning("No Save Loaded", "Please load a valid character save file first!")
+            return
+
+        equip_summary = get_equipment_summary(self.raw_save_data)
+        slot_name = equip_summary[slot_index]["slot_name"]
+
+        # Call the imported modular dialog
+        open_equipment_tuning_dialog(
+            self.root, 
+            self.raw_save_data, 
+            slot_index, 
+            slot_name, 
+            self.refresh_equipment_ui
+        )
 
     def on_save_clicked(self):
         if not self.raw_save_data: return
         try:
             updated_attributes = {key: int(var.get()) for key, (var, _) in self.attr_vars.items()}
+            updated_attributes["playerName"] = self.var_name.get()
+            updated_attributes["playerClass"] = self.combo_class.get()
+            updated_attributes["female"] = (self.combo_gender.get() == "Female")
+            updated_attributes["leftHanded"] = (self.combo_hand.get() == "Left-Handed")
+            updated_attributes["portrait"] = int(self.var_portrait.get())
+
             updated_skills = {name: int(var.get()) for name, (var, _) in self.skill_vars.items()}
+            self.raw_save_data["quest_flags"] = {q["flag"]: self.quest_vars[q["flag"]].get() for q in QUEST_FLAGS}
             
             update_character(self.raw_save_data, updated_attributes, updated_skills)
             save_game_data(self.selected_slot, self.raw_save_data)
             
-            messagebox.showinfo("Success", "All attributes, skills, and equipment mutations written to disk!")
-            
+            self.char_lbl.config(text=f"Avatar: {updated_attributes['playerName']} ({updated_attributes['playerClass']})")
+            messagebox.showinfo("Success", "All identities, survival bounds, quest flags, and equipment written to save block!")
         except ValueError:
-            messagebox.showerror("Input Error", "Attribute entries only accept integers!")
+            messagebox.showerror("Input Error", "Please verify numerical inputs. Formats must match integers!")
         except Exception as e:
             messagebox.showerror("Save Error", f"Could not write back data: {e}")
 
