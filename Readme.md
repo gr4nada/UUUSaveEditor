@@ -9,7 +9,7 @@ This tool decompresses, parses, and modifies the game's native save structure, g
 *   **Native Compatibility:** Automatically targets the standard Unity persistence path (`AppData/LocalLow/Kweepa/UnityUnderground/Saves`).
 *   **GZip Stream Handling:** Seamlessly decompresses `.json.gz` save slots into editable Python dictionaries and re-packs them perfectly back into the game's expected compression format.
 *   **Character Stats Editor:** Safely modify character attributes (`hp`, `mana`, `strength`, `dexterity`, `intellect`, `exp`, `charLevel`).
-*   **19-Skill Matrix:** Individual or batch modification of all 19 official character skills (Attack, Casting, Lore, etc.) using safe bounds to prevent save corruption.
+*   **20-Skill Matrix:** Individual or batch modification of all 20 official character skills (Attack, Casting, Lore, etc.) using safe bounds to prevent save corruption.
 *   **Modular Architecture:** Built using clean, decoupled *Getters* and *Setters*—perfect for running as a command-line utility or linking into a custom GUI.
 
 ## Tech Stack
