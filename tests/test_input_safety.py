@@ -12,11 +12,14 @@ Covers four core risk vectors arriving from the user interface (GUI):
 Each individual case isolates expected functional behaviors AND details the operational
 consequence if the subsystem deviates (noted explicitly via inline "Risk:" comments).
 """
+import logging
 import json
 import copy
 import pytest
 from src.core.character import get_character_summary, update_character, _NUMERIC_ATTRIBUTES
 from src.core.enums import NOMES_SKILLS, EPlayerClass
+
+logger = logging.getLogger("tests.test_input_safety")
 
 
 # ===========================================================================

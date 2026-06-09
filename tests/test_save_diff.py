@@ -5,7 +5,10 @@ Unit tests for SaveDiff — the core reverse-engineering diagnostic tool from Sp
 SaveDiff.compare(a, b) serves as the primary instrument to pinpoint structural
 and value variances between save records: simple attributes, flat arrays, and nested schemas.
 """
+import logging
 from src.core.save_diff import SaveDiff
+
+logger = logging.getLogger("tests.test_save_diff")
 
 
 # ---------------------------------------------------------------------------

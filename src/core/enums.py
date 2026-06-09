@@ -1,4 +1,7 @@
+import logging
 from enum import Enum
+
+logger = logging.getLogger("core.enums")
 
 class EPlayerClass(Enum):
     FIGHTER = 0

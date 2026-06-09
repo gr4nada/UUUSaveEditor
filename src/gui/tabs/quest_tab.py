@@ -1,7 +1,10 @@
 # src/gui/tabs/quest_tab.py
+import logging
 import tkinter as tk
 from tkinter import ttk
 from src.gui.constants import QUEST_FLAGS
+
+logger = logging.getLogger("gui.tabs.quest")
 
 
 class QuestTab(ttk.Frame):

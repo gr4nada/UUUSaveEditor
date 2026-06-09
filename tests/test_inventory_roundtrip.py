@@ -5,10 +5,13 @@ Inventory and equipment integrity data validation tests.
 Covers: inventoryData structure mapping, update_equipped_item modification roundtrips,
 jsonData string preservation, nested enchantment properties parsing, and isolated non-target elements checks.
 """
+import logging
 import json
 import copy
 from src.core.inventory import get_equipment_summary, update_equipped_item
 from src.core.save_diff import SaveDiff
+
+logger = logging.getLogger("tests.test_inventory_roundtrip")
 
 
 # ---------------------------------------------------------------------------

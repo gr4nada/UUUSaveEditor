@@ -1,7 +1,10 @@
 # src/gui/tabs/equipment_tab.py
+import logging
 import tkinter as tk
 from tkinter import ttk
 from src.gui.icon_loader import IconLoader
+
+logger = logging.getLogger("gui.tabs.equipment")
 
 _SLOT_POSITIONS = [
     (80,  60), (243, 60),  (400, 60),

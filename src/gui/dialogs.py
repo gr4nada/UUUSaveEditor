@@ -1,8 +1,11 @@
 # src/gui/dialogs.py
+import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
 from src.gui.constants import SPELL_DATABASE
 from src.core.inventory import WIKI_ITEM_DATABASE, update_equipped_item
+
+logger = logging.getLogger("gui.dialogs")
 
 def open_equipment_tuning_dialog(parent, raw_save_data, slot_index, slot_name, on_success_callback):
     """Builds the dual-column modal frame handling structural item and spell mutations."""

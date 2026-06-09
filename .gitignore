@@ -15,3 +15,8 @@ ENV/
 .DS_Store
 Thumbs.db
 .early.coverage
+
+# Backups
+*.bak
+*.tmp
+*.zip

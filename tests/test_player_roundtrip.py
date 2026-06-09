@@ -5,9 +5,12 @@ Integrity and validation tests for the playerData block.
 Covers: primitive types, values boundaries, modification roundtrips,
 survival mechanism metrics, and structural boolean flags for class, gender, and dominant hand.
 """
+import logging
 import copy
 from src.core.character import get_character_summary, update_character
 from src.core.save_diff import SaveDiff
+
+logger = logging.getLogger("tests.test_player_roundtrip")
 
 
 # ---------------------------------------------------------------------------

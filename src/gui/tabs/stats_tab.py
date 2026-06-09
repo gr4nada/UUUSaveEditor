@@ -1,8 +1,11 @@
 # src/gui/tabs/stats_tab.py
+import logging
 import tkinter as tk
 from tkinter import ttk
 from src.core.enums import NOMES_SKILLS
 from src.gui.constants import UNDERWORLD_CLASSES
+
+logger = logging.getLogger("gui.tabs.stats")
 
 # ---------------------------------------------------------------------------
 # Definição declarativa dos campos — adicionar/remover campo = uma linha aqui

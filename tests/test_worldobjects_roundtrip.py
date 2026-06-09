@@ -1,9 +1,12 @@
 # tests/test_worldobjects_roundtrip.py
+import logging
 import json
 import copy
 from src.core.character import get_character_summary, update_character
 from src.core.inventory import update_equipped_item
 from src.core.save_diff import SaveDiff
+
+logger = logging.getLogger("tests.test_worldobjects_roundtrip")
 
 
 # ---------------------------------------------------------------------------

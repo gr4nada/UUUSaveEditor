@@ -1,4 +1,7 @@
 # src/gui/constants.py
+import logging
+
+logger = logging.getLogger("gui.constants")
 
 UNDERWORLD_CLASSES = ["Fighter", "Mage", "Bard", "Tinker", "Druid", "Paladin", "Ranger", "Shepherd"]
 

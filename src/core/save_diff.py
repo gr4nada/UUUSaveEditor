@@ -1,4 +1,7 @@
 # src/core/save_diff.py
+import logging
+
+logger = logging.getLogger("core.save_diff")
 
 class SaveDiff:
     @staticmethod

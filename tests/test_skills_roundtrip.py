@@ -5,9 +5,12 @@ Skills array and quest progress flags validation tests.
 Covers: collection dimensions, isolated elements roundtrips, enum sequential indexing,
 cheat maximization functions, and structural recovery during array corruption scenarios.
 """
+import logging
 import copy
 from src.core.character import get_character_summary, update_character, cheat_max_all_skills
 from src.core.enums import NOMES_SKILLS
+
+logger = logging.getLogger("tests.test_skills_roundtrip")
 
 
 # ---------------------------------------------------------------------------

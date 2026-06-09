@@ -6,10 +6,13 @@ Ensures that the load -> summary -> update_character operational pipeline does n
 any data boundaries untouched by the user interface. If any test here fails, user-facing
 modifications could silently corrupt structural areas of the save state.
 """
+import logging
 import json
 import copy
 from src.core.character import get_character_summary, update_character
 from src.core.save_diff import SaveDiff
+
+logger = logging.getLogger("tests.test_roundtrip")
 
 
 def test_json_serialization_is_lossless(sample_save):

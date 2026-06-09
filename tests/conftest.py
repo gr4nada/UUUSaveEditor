@@ -2,7 +2,10 @@
 import os
 import json
 import copy
+import logging
 import pytest
+
+logger = logging.getLogger("tests.conftest")
 
 @pytest.fixture
 def sample_save_path():
