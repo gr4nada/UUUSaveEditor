@@ -12,11 +12,14 @@ def load_save(slot_number: int) -> dict:
         raise FileNotFoundError(f"Save slot file {slot_number} does not exist at {SAVES_DIR}")
     
     with gzip.open(file_path, 'rb') as f:
-        return json.loads(f.read().decode('utf-8'))
+        try:
+            return json.loads(f.read().decode('utf-8'))
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid save JSON: {exc}") from exc
 
 def save_game_data(slot_number: int, data: dict):
     """Serializes and compresses the modified dictionary back into GZip format."""
     file_path = os.path.join(SAVES_DIR, f"slot{slot_number}.json.gz")
-    json_text = json.dumps(data, indent=4)
+    json_text = json.dumps(data, indent=4, ensure_ascii=False)
     with gzip.open(file_path, 'wb') as f:
         f.write(json_text.encode('utf-8'))
