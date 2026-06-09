@@ -45,6 +45,6 @@ class EWhoAmI(Enum):
 
 NOMES_SKILLS = [
     "Attack", "Defense", "Unarmed", "Sword", "Axe", "Mace", "Missile", 
-    "Mana", "Lore", "Casting", "Traps", "Sneak", "Repair", "Charm", 
-    "Pickpocket", "Acrobat", "Appraise", "Swimming", "Search"
+    "Mana", "Lore", "Casting", "Traps","Search", "Track","Sneak", "Repair", "Charm", 
+    "Pickpocket", "Acrobat", "Appraise", "Swimming", 
 ]

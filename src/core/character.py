@@ -1,101 +1,86 @@
+# src/core/character.py
 import logging
-from src.core.enums import NOMES_SKILLS, EPlayerClass
+from src.core.enums import NOMES_SKILLS
 
 logger = logging.getLogger("core.character")
 
-# Campos numéricos simples mapeados diretamente de/para playerData
+# FIXED: Replaced "exp" with "xp" to align perfectly with Unity's Assembly definitions
 _NUMERIC_ATTRIBUTES = [
-    "charLevel", "exp", "hp", "vitality", "mana", "maxMana",
-    "strength", "dexterity", "intellect", "skillPoints",
+    "charLevel",
+    "xp",
+    "strength",
+    "intellect",
+    "dexterity",
+    "hp",
+    "vitality",
+    "mana",
+    "maxMana",
+    "skillPoints",
+    "poison",
+    "hunger",
+    "fatigue",
+    "drunkenness",
+    "portrait"
 ]
 
-_SURVIVAL_ATTRIBUTES = [
-    "poison", "hunger", "fatigue", "drunkenness",
-]
-
-
-def get_character_summary(data: dict) -> dict:
-    """
-    Extrai atributos e skills do save e retorna um dict limpo para a GUI.
-    Lança KeyError se 'playerData' não existir.
-    """
-    if "playerData" not in data:
-        raise KeyError("'playerData' not found in save file.")
-
-    p = data["playerData"]
-
-    class_id = p.get("playerClass", 0)
-    try:
-        class_name = EPlayerClass(class_id).name.capitalize()
-    except ValueError:
-        class_name = f"Unknown ({class_id})"
-
-    attributes = {
-        "playerName":  p.get("playerName", "Unknown"),
-        "playerClass": class_name,
-        "female":      p.get("female", False),
-        "leftHanded":  p.get("leftHanded", False),
-        "portrait":    p.get("portrait", 0),
+def get_character_summary(raw_save_data: dict) -> dict:
+    """Extracts data primitives from data streams securely."""
+    # Ensure nested structural data path layers exist
+    player_data = raw_save_data.get("playerData", {})
+    
+    attributes = {}
+    attributes["playerName"] = player_data.get("playerName", "Avatar")
+    attributes["playerClass"] = player_data.get("playerClass", "Fighter")
+    attributes["female"] = bool(player_data.get("female", False))
+    attributes["leftHanded"] = bool(player_data.get("leftHanded", False))
+    
+    # Read numeric bindings mapped properties securely
+    for attr in _NUMERIC_ATTRIBUTES:
+        attributes[attr] = int(player_data.get(attr, 0))
+        
+    # Extract skill lists bindings arrays
+    raw_skills = player_data.get("skill", [])
+    skills_map = {}
+    for idx, skill_name in enumerate(NOMES_SKILLS):
+        if idx < len(raw_skills):
+            skills_map[skill_name] = int(raw_skills[idx])
+        else:
+            skills_map[skill_name] = 0
+            
+    return {
+        "attributes": attributes,
+        "skills": skills_map
     }
 
-    for key in _NUMERIC_ATTRIBUTES + _SURVIVAL_ATTRIBUTES:
-        attributes[key] = p.get(key, 0)
+def update_character(raw_save_data: dict, updated_attributes: dict, updated_skills: dict):
+    """Mutates original save stream layout mappings with new updates profiles."""
+    if "playerData" not in raw_save_data:
+        raw_save_data["playerData"] = {}
+        
+    p = raw_save_data["playerData"]
+    
+    # Track text fields allocations updates
+    p["playerName"] = updated_attributes.get("playerName", "Avatar")
+    p["playerClass"] = updated_attributes.get("playerClass", "Fighter")
+    p["female"] = bool(updated_attributes.get("female", False))
+    p["leftHanded"] = bool(updated_attributes.get("leftHanded", False))
+    
+    # Pack numeric properties mutations values
+    for attr in _NUMERIC_ATTRIBUTES:
+        if attr in updated_attributes:
+            p[attr] = int(updated_attributes[attr])
+            
+    # Pack skill collection indexes updates sequence lists
+    skills_list = []
+    for skill_name in NOMES_SKILLS:
+        skills_list.append(int(updated_skills.get(skill_name, 0)))
+    p["skill"] = skills_list
 
-    skills = {}
-    save_skills = p.get("skill", [])
-    for idx, skill_name in enumerate(NOMES_SKILLS):
-        skills[skill_name] = save_skills[idx] if idx < len(save_skills) else 0
-
-    return {"attributes": attributes, "skills": skills}
-
-
-def update_character(data: dict, new_attributes: dict, new_skills: dict) -> None:
-    """
-    Injeta atributos e skills modificados de volta no dicionário do save.
-    Lança KeyError se 'playerData' não existir.
-    """
-    if "playerData" not in data:
-        raise KeyError("'playerData' not found for update.")
-
-    p = data["playerData"]
-
-    # Campos de texto e booleanos
-    for key in ("playerName", "female", "leftHanded"):
-        if key in new_attributes:
-            p[key] = new_attributes[key]
-
-    # Classe: converte nome de volta para int via Enum
-    if "playerClass" in new_attributes:
-        class_name = new_attributes["playerClass"].upper()
-        try:
-            p["playerClass"] = EPlayerClass[class_name].value
-        except KeyError:
-            logger.warning("Classe desconhecida '%s' — não atualizada.", new_attributes["playerClass"])
-
-    # Portrait
-    if "portrait" in new_attributes:
-        p["portrait"] = int(new_attributes["portrait"])
-
-    # Todos os campos numéricos (atributos + survival)
-    for key in _NUMERIC_ATTRIBUTES + _SURVIVAL_ATTRIBUTES:
-        if key in new_attributes and new_attributes[key] is not None:
-            p[key] = int(new_attributes[key])
-
-    # Skills — atualiza o array existente, expande se necessário
-    updated = list(p.get("skill", []))
-    for idx, skill_name in enumerate(NOMES_SKILLS):
-        if skill_name in new_skills and new_skills[skill_name] is not None:
-            val = int(new_skills[skill_name])
-            if idx < len(updated):
-                updated[idx] = val
-            else:
-                updated.append(val)
-    p["skill"] = updated
-
-
-def cheat_max_all_skills(data: dict, value: int = 30) -> None:
-    """Força todos os 19 skills para o valor dado."""
-    if "playerData" in data:
-        p = data["playerData"]
-        if "skill" in p and isinstance(p["skill"], list):
-            p["skill"] = [int(value)] * len(p["skill"])
+def cheat_max_all_skills(raw_save_data: dict, value: int = 30):
+    """FIXED: Uses robust design bounds instead of array mutations multi-operators to avoid empty lists bypasses."""
+    if "playerData" not in raw_save_data:
+        raw_save_data["playerData"] = {}
+        
+    p = raw_save_data["playerData"]
+    # Enforces explicit allocation layout footprint sizes based directly on the authoritative list definition
+    p["skill"] = [int(value)] * len(NOMES_SKILLS)
