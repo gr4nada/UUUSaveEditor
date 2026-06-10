@@ -31,6 +31,8 @@ from tkinter import ttk
 from PIL import Image, ImageTk
 import logging
 
+from src.gui.constants import OFFSETS_FEMALE, OFFSETS_MALE, ITEM_ID_TO_PART_TYPE, ITEM_ID_TO_SPRITE_BASE
+
 logger = logging.getLogger("gui.widgets.character_preview")
 
 _ASSETS = "assets"
@@ -38,26 +40,6 @@ _ASSETS = "assets"
 # Canvas dimensions — painel generoso conforme redesign
 _PORTRAIT_SIZE = (120, 120)
 _DOLL_W, _DOLL_H = 180, 300
-
-_SLOT_TO_ARMOUR_PART = {
-    4:  0,   # Chest
-    8:  1,   # Legs
-    10: 2,   # Boots
-    6:  3,   # Gloves
-    1:  4,   # Helmet
-}
-
-# Offsets recalculados para o canvas maior (180×300)
-_PART_OFFSETS = {
-    0: (70,  82),    # Chest
-    1: (78, 148),    # Legs
-    2: (68, 228),    # Boots
-    3: (38, 124),    # Gloves
-    4: (70,  14),    # Helmet
-}
-
-# Escala de ampliação dos sprites de armour
-_ARMOUR_SCALE = 2.4
 
 
 def _remove_white(img: Image.Image) -> Image.Image:
@@ -170,46 +152,93 @@ class CharacterPreviewWidget(ttk.LabelFrame):
             self._placeholder(self._portrait_canvas, _PORTRAIT_SIZE, f"#{portrait_id}")
 
     def _render_doll(self, portrait_id: int, female: bool, equipped_slots: dict) -> None:
-        self._doll_canvas.delete("all")
+            self._doll_canvas.delete("all")
 
-        # 1. Body base — índice = portrait_id (mapeamento 1:1)
-        body_path = os.path.join(_ASSETS, "Bodies", f"{portrait_id:03d}.png")
-        try:
-            body = _remove_white(Image.open(body_path))
-            scale = min(_DOLL_W / body.width, (_DOLL_H - 30) / body.height)
-            bw = int(body.width  * scale)
-            bh = int(body.height * scale)
-            body = body.resize((bw, bh), Image.Resampling.NEAREST)
-            bx = (_DOLL_W - bw) // 2
-            by = (_DOLL_H - bh) // 2
-            photo = ImageTk.PhotoImage(body)
-            self._photos.append(photo)
-            self._doll_canvas.create_image(bx, by, image=photo, anchor="nw")
-        except Exception as e:
-            logger.warning("Body %d: %s", portrait_id, e)
-
-        # 2. Armour layers
-        armour_dir = "Armour_f" if female else "Armour_m"
-        for slot_idx, part_idx in _SLOT_TO_ARMOUR_PART.items():
-            slot_data = equipped_slots.get(slot_idx, {})
-            if slot_data.get("objectType", 0) == 0:
-                continue
-
-            qc = max(0, min(slot_data.get("qualityClass", 0), 3))
-            sprite_idx = qc * 16 + part_idx * 3
-            spath = os.path.join(_ASSETS, armour_dir, f"sprite_{sprite_idx:03d}.png")
+            # 1. Body base — índice = portrait_id (mapeamento 1:1)
+            body_path = os.path.join(_ASSETS, "Bodies", f"{portrait_id:03d}.png")
+            
+            # Guardamos a escala real calculada e os recuos para aplicar nas armaduras
+            current_scale = 1.1
+            bx, by = 0, 0
+            
             try:
-                spr = _remove_white(Image.open(spath))
-                nw = max(1, int(spr.width  * _ARMOUR_SCALE))
-                nh = max(1, int(spr.height * _ARMOUR_SCALE))
-                spr = spr.resize((nw, nh), Image.Resampling.NEAREST)
-                photo = ImageTk.PhotoImage(spr)
+                body = _remove_white(Image.open(body_path))
+                
+                # Calcula a escala exata baseada no tamanho real da tela (180x300)
+                current_scale = min(_DOLL_W / body.width, (_DOLL_H - 30) / body.height)
+                
+                bw = int(body.width  * current_scale)
+                bh = int(body.height * current_scale)
+                body = body.resize((bw, bh), Image.Resampling.NEAREST)
+                
+                # Coordenadas de centralização do corpo no canvas
+                bx = (_DOLL_W - bw) // 2
+                by = (_DOLL_H - bh) // 2
+                
+                photo = ImageTk.PhotoImage(body)
                 self._photos.append(photo)
-                ox, oy = _PART_OFFSETS[part_idx]
-                self._doll_canvas.create_image(ox, oy, image=photo, anchor="nw")
+                self._doll_canvas.create_image(bx, by, image=photo, anchor="nw")
             except Exception as e:
-                logger.debug("Armour slot=%d part=%d: %s", slot_idx, part_idx, e)
+                logger.warning("Body %d: %s", portrait_id, e)
+                return # Se não carregar o corpo, não faz sentido desenhar armadura por cima
 
+            # 2. Armour layers (Renderização com ordem de camadas fixa)
+            armour_dir = "Armour_f" if female else "Armour_m"
+            offsets_table = OFFSETS_FEMALE if female else OFFSETS_MALE
+
+            # Definimos a ordem cirúrgica das camadas: Botas -> Pernas -> Peito -> Luvas -> Elmo
+            # Cada número corresponde ao ID do SLOT do inventário
+            ORDERED_ARMOUR_SLOTS = [8, 10, 4, 6, 1]
+
+            for slot_idx in ORDERED_ARMOUR_SLOTS:
+                # Busca os dados do slot específico; se o jogador não tiver o slot equipado, pula
+                slot_data = equipped_slots.get(slot_idx)
+                if not slot_data:
+                    continue
+                    
+                item_id = slot_data.get("objectType", 0)
+                
+                # Se o slot estiver vazio ou o item não for uma armadura mapeada, pula
+                if item_id not in ITEM_ID_TO_SPRITE_BASE:
+                    continue
+
+                base_index = ITEM_ID_TO_SPRITE_BASE[item_id]
+                qc = max(0, min(slot_data.get("qualityClass", 0), 3))
+                
+                if base_index >= 60:
+                    sprite_idx = base_index
+                else:
+                    sprite_idx = base_index + (qc * 15)
+
+                spath = os.path.join(_ASSETS, armour_dir, f"sprite_{sprite_idx:03d}.png")
+                
+                try:
+                    if not os.path.exists(spath):
+                        continue
+                        
+                    spr = _remove_white(Image.open(spath))
+                    
+                    # Modificador de ajuste fino caso precise dar um tapa no tamanho geral
+                    ARMOUR_SIZE_MODIFIER = 2.0
+                    armour_scale = current_scale * ARMOUR_SIZE_MODIFIER
+                    
+                    nw = max(1, int(spr.width  * armour_scale))
+                    nh = max(1, int(spr.height * armour_scale))
+                    spr = spr.resize((nw, nh), Image.Resampling.NEAREST)
+                    
+                    photo = ImageTk.PhotoImage(spr)
+                    self._photos.append(photo)
+                    
+                    part_type = ITEM_ID_TO_PART_TYPE[item_id]
+                    ox, oy = offsets_table[part_type]
+                    
+                    ox_final = bx + int(ox * current_scale)
+                    oy_final = by + int(oy * current_scale)
+                    
+                    self._doll_canvas.create_image(ox_final, oy_final, image=photo, anchor="nw")
+                    
+                except Exception as e:
+                    logger.debug("Armour slot=%d item_id=%d: %s", slot_idx, item_id, e)
     # ------------------------------------------------------------------
     # Helpers
     # ------------------------------------------------------------------

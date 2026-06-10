@@ -3,7 +3,6 @@
 import tkinter as tk
 from tkinter import ttk
 
-
 class MagicTab(ttk.Frame):
     """
     'Magic' Tab — Renders global magicData properties from the active save block.

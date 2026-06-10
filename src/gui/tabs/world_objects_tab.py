@@ -1,5 +1,5 @@
 # src/gui/tabs/world_objects_tab.py
-"""World Objects Tab — Placeholder layout block deferred for implementation in Sprint 5."""
+
 import tkinter as tk
 from tkinter import ttk
 
