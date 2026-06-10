@@ -1,4 +1,4 @@
-# src/gui/widgets/__init__.py
-from .save_header import SaveHeaderFrame
+from src.gui.widgets.save_header import SaveHeaderFrame
+from src.gui.widgets.character_preview import CharacterPreviewWidget
 
-__all__ = ["SaveHeaderFrame"]
+__all__ = ["SaveHeaderFrame", "CharacterPreviewWidget"]
