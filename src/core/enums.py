@@ -176,10 +176,6 @@ ITEM_TYPES_SKIP = frozenset({
 })
 
 class EObjectType(Enum):
-    """
-    Mapeamento EObjectType int → nome do objeto/item.
-    Extraído diretamente do enum C# da DLL do jogo (Unity Port).
-    """
     # ==================== WEAPONS ====================
     HandAxe         = 0
     BattleAxe       = 1
@@ -392,8 +388,11 @@ class EObjectType(Enum):
     # ==================== KEYS & RUNESTONES ====================
     KeyOfTruth      = 226
     KeyOfLove       = 227
-    KeyOfCourage    = 228
-    KeyOfInfinity   = 232
+    KeyOfCourage    = 227
+    KeyOfInfinity   = 231
+    TwoPartKeyTL    = 228
+    TwoPartKey      = 229 
+    TwoPartKey      = 230 
     # Runestones (An, Bet, Corp, ...)
     RunestoneAn     = 233
     RunestoneBet    = 234
@@ -408,6 +407,165 @@ class EObjectType(Enum):
     Unk52           = 52
     Unk53           = 53
 
+PROP_ITENS = {
+    # === MELEE WEAPONS ===
+    0  : {"mass": 2.4, "value": 20},    # Hand Axe
+    1  : {"mass": 4.0, "value": 60},    # Battle Axe
+    2  : {"mass": 3.2, "value": 100},   # Axe
+    3  : {"mass": 0.8, "value": 20},    # Dagger
+    4  : {"mass": 1.6, "value": 50},    # Short Sword
+    5  : {"mass": 2.4, "value": 80},    # Long Sword
+    6  : {"mass": 3.2, "value": 100},   # Broad Sword
+    7  : {"mass": 1.6, "value": 15},    # Cudgel
+    8  : {"mass": 2.4, "value": 55},    # Light Mace
+    9  : {"mass": 3.2, "value": 90},    # Mace
+    10 : {"mass": 3.4, "value": 0},     # Shiny Sword (Caliburn)
+    11 : {"mass": 3.2, "value": 250},   # Jeweled Axe
+    12 : {"mass": 3.6, "value": 200},   # Black Sword
+    13 : {"mass": 2.8, "value": 250},   # Jeweled Sword
+    14 : {"mass": 2.8, "value": 250},   # Jeweled Mace
+    15 : {"mass": 0.0, "value": 0},     # Fist (Mão Nua)
+
+    # === AMMO & PROJECTILES ===
+    16 : {"mass": 0.1, "value": 1},     # Sling Stone
+    17 : {"mass": 0.2, "value": 4},     # Crossbow Bolt
+    18 : {"mass": 0.1, "value": 2},     # Arrow
+    19 : {"mass": 0.4, "value": 0},     # Stone
+    20 : {"mass": 0.0, "value": 0},     # Fireball spell missile
+    21 : {"mass": 0.0, "value": 0},     # Lightning spell missile
+    22 : {"mass": 0.0, "value": 0},     # Acid trap projectile
+    23 : {"mass": 0.0, "value": 0},     # Magic Missile spell projectile
+
+    # === RANGED WEAPONS ===
+    24 : {"mass": 0.4, "value": 10},    # Sling
+    25 : {"mass": 1.2, "value": 50},    # Bow
+    26 : {"mass": 2.4, "value": 70},    # Crossbow
+    27 : {"mass": 0.0, "value": 0},     # Control Slot (Interno)
+    28 : {"mass": 0.0, "value": 0},     # Control Slot (Interno)
+    29 : {"mass": 0.0, "value": 0},     # Control Slot (Interno)
+    30 : {"mass": 0.0, "value": 0},     # Control Slot (Interno)
+    31 : {"mass": 1.6, "value": 150},   # Jeweled Bow
+
+    # === ARMOR & WEARABLES ===
+    32 : {"mass": 2.0, "value": 20},    # Leather Vest
+    33 : {"mass": 4.0, "value": 45},    # Mail Shirt
+    34 : {"mass": 8.0, "value": 70},    # Breastplate
+    35 : {"mass": 1.6, "value": 15},    # Leather Leggings
+    36 : {"mass": 3.2, "value": 35},    # Mail Leggings
+    37 : {"mass": 6.4, "value": 60},    # Plate Leggings
+    38 : {"mass": 0.8, "value": 10},    # Leather Gloves
+    39 : {"mass": 1.2, "value": 20},    # Chain Gauntlets
+    40 : {"mass": 1.6, "value": 30},    # Plate Gauntlets
+    41 : {"mass": 1.2, "value": 12},    # Leather Boots
+    42 : {"mass": 1.6, "value": 25},    # Chain Boots
+    43 : {"mass": 2.0, "value": 40},    # Plate Boots
+    44 : {"mass": 0.8, "value": 15},    # Leather Cap
+    45 : {"mass": 1.2, "value": 30},    # Chain Cowl
+    46 : {"mass": 1.6, "value": 50},    # Helmet
+    47 : {"mass": 3.2, "value": 150},   # Dragonskin Boots
+    48 : {"mass": 0.4, "value": 140},   # Crown (Gold)
+    49 : {"mass": 0.4, "value": 120},   # Crown (Silver)
+    50 : {"mass": 0.4, "value": 90},    # Crown (Bronze)
+    51 : {"mass": 0.0, "value": 0},     # Garment/Amulet Slot Interno
+    52 : {"mass": 0.0, "value": 0},     # Garment/Amulet Slot Interno
+    53 : {"mass": 0.0, "value": 0},     # Garment/Amulet Slot Interno
+
+    # === SHIELDS & RINGS ===
+    54 : {"mass": 0.1, "value": 40},    # Iron Ring
+    55 : {"mass": 3.0, "value": 100},   # Shiny Shield
+    56 : {"mass": 0.1, "value": 100},   # Gold Ring
+    57 : {"mass": 0.1, "value": 70},    # Silver Ring
+    58 : {"mass": 0.1, "value": 150},   # Red Ring (Gemmed)
+    59 : {"mass": 4.0, "value": 65},    # Tower Shield
+    60 : {"mass": 3.0, "value": 30},    # Wooden Shield
+    61 : {"mass": 2.0, "value": 20},    # Small Shield
+    62 : {"mass": 1.0, "value": 10},    # Buckler
+    63 : {"mass": 2.5, "value": 200},   # Jeweled Shield
+
+    # === CONTAINERS ===
+    128: {"mass": 0.2, "value": 5},     # Sack (Fechada)
+    129: {"mass": 0.2, "value": 5},     # Open Sack
+    130: {"mass": 0.4, "value": 15},    # Pack (Mochila)
+    131: {"mass": 0.4, "value": 15},    # Open Pack
+    132: {"mass": 1.0, "value": 10},    # Box (Baú pequeno)
+    133: {"mass": 1.0, "value": 10},    # Open Box
+    134: {"mass": 0.1, "value": 3},     # Pouch (Bolsa)
+    135: {"mass": 0.1, "value": 3},     # Open Pouch
+    136: {"mass": 0.2, "value": 8},     # Map Case
+    137: {"mass": 0.2, "value": 8},     # Open Map Case
+    138: {"mass": 2.0, "value": 40},    # Gold Coffer (Cofre)
+    139: {"mass": 2.0, "value": 40},    # Open Gold Coffer
+    140: {"mass": 0.4, "value": 4},     # Urn
+    141: {"mass": 0.4, "value": 12},    # Quiver (Aljava)
+    142: {"mass": 0.2, "value": 2},     # Bowl
+    143: {"mass": 0.2, "value": 25},    # Rune Bag
+
+    # === LIGHT SOURCES ===
+    144: {"mass": 1.0, "value": 20},    # Lantern (Unlit)
+    145: {"mass": 1.0, "value": 20},    # Lantern (Duplicado)
+    146: {"mass": 0.4, "value": 2},     # Torch (Unlit)
+    147: {"mass": 0.1, "value": 4},     # Candle (Unlit)
+    148: {"mass": 0.1, "value": 1},     # Taper (Vela fina)
+    149: {"mass": 1.0, "value": 20},    # Lit Lantern
+    150: {"mass": 0.4, "value": 2},     # Lit Torch
+    151: {"mass": 0.1, "value": 4},     # Lit Candle
+    152: {"mass": 0.1, "value": 1},     # Lit Taper
+
+    # === WANDS ===
+    153: {"mass": 0.4, "value": 80},    # Wand A
+    154: {"mass": 0.4, "value": 100},   # Wand B
+    155: {"mass": 0.4, "value": 150},   # Wand C
+    156: {"mass": 0.4, "value": 200},   # Wand D
+    157: {"mass": 0.2, "value": 10},    # Broken Wand A
+    158: {"mass": 0.2, "value": 10},    # Broken Wand B
+    159: {"mass": 0.2, "value": 15},    # Broken Wand C
+    160: {"mass": 0.2, "value": 20},    # Broken Wand D
+
+    # === TREASURES & GEMS ===
+    161: {"mass": 0.0, "value": 1},     # Coin (Moeda individual)
+    162: {"mass": 0.1, "value": 10},    # Gold Nugget/Stack (Moedas)
+    163: {"mass": 0.1, "value": 40},    # Ruby
+    164: {"mass": 0.1, "value": 25},    # Red Gem
+    165: {"mass": 0.1, "value": 15},    # Small Blue Gem
+    166: {"mass": 0.2, "value": 60},    # Large Blue Gem
+    167: {"mass": 0.1, "value": 50},    # Sapphire
+    168: {"mass": 0.1, "value": 45},    # Emerald
+    169: {"mass": 0.2, "value": 90},    # Amulet
+    170: {"mass": 0.4, "value": 45},    # Goblet (Taça de ouro)
+    171: {"mass": 0.8, "value": 120},   # Sceptre
+    172: {"mass": 0.2, "value": 75},    # Gold Chain
+    173: {"mass": 0.6, "value": 85},    # Gold Plate
+    174: {"mass": 0.1, "value": 100},   # Ankh Pendant
+    175: {"mass": 0.4, "value": 30},    # Shiny Cup
+    176: {"mass": 1.5, "value": 150},   # Large Gold Nugget
+
+    # === FOOD & DRINK ===
+    177: {"mass": 0.4, "value": 4},     # Piece of Meat
+    178: {"mass": 0.4, "value": 2},     # Loaf of Bread
+    179: {"mass": 0.2, "value": 3},     # Piece of Cheese
+    180: {"mass": 0.1, "value": 1},     # Apple
+    181: {"mass": 0.2, "value": 1},     # Ear of Corn (Milho)
+    182: {"mass": 0.4, "value": 2},     # Loaf of Bread B
+    183: {"mass": 0.3, "value": 2},     # Fish
+    184: {"mass": 0.1, "value": 1},     # Popcorn
+    185: {"mass": 0.1, "value": 1},     # Mushroom
+    186: {"mass": 0.1, "value": 0},     # Toadstool (Venenoso)
+    187: {"mass": 0.6, "value": 3},     # Bottle of Ale
+    188: {"mass": 0.4, "value": 25},    # Red Potion
+    189: {"mass": 0.4, "value": 25},    # Green Potion
+    190: {"mass": 0.5, "value": 1},     # Bottle of Water
+    191: {"mass": 0.6, "value": 12},    # Flask of Port
+    192: {"mass": 0.6, "value": 8},     # Bottle of Wine
+
+    # === QUEST KEYS & RUNES ===
+    226: {"mass": 0.1, "value": 0},     # Key of Truth
+    227: {"mass": 0.1, "value": 0},     # Key of Love
+    228: {"mass": 0.1, "value": 0},     # Key of Courage
+    232: {"mass": 0.1, "value": 0},     # Key of Infinity
+    233: {"mass": 0.1, "value": 10},    # Rune: An
+    234: {"mass": 0.1, "value": 10},    # Rune: Bet
+    235: {"mass": 0.1, "value": 10}     # Rune: Corp
+}
 
 def get_object_name(object_id: int) -> str:
     """Retorna o nome do objeto ou 'Unknown#ID' se não mapeado."""
