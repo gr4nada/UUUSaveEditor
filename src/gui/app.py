@@ -33,6 +33,7 @@ from src.gui.tabs.skills_quests_tab import SkillsQuestsTab
 from src.gui.tabs.magic_tab         import MagicTab
 from src.gui.tabs.inventory_tab     import InventoryTab
 from src.gui.tabs.world_objects_tab import WorldObjectsTab
+from src.gui.tabs.critters_tab      import CrittersTab
 
 logger = logging.getLogger("gui.app")
 _TITLE = "Ultima Underworld Unity - Save Editor"
@@ -99,7 +100,7 @@ class EditorApp:
         self._tab_magic     = MagicTab(self._nb)
         self._tab_inventory = InventoryTab(self._nb)
         self._tab_world     = WorldObjectsTab(self._nb)
-        self._tab_critters  = self._placeholder_tab("Critters / NPCs — coming soon.")
+        self._tab_critters  = CrittersTab(self._nb)
 
         self._nb.add(self._tab_character, text="  Character  ")
         self._nb.add(self._tab_skills,    text="  Skills & Quests  ")
@@ -189,6 +190,10 @@ class EditorApp:
             self._tab_magic.load(player)
             self._tab_inventory.refresh(self._raw_save)
             self._tab_world.load(self._save_game)
+
+            from src.core.world_parser import parse_world
+            _critters, _items = parse_world(self._raw_save)
+            self._tab_critters.load(_critters)
 
             self._header.update_from_save(self._raw_save, self._selected_slot)
             self._refresh_preview()
