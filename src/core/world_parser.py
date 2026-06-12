@@ -6,7 +6,12 @@ Stateless, no Tkinter, 100% testable.
 from __future__ import annotations
 import json
 import logging
-from src.core.enums import whoami_name, attitude_label, ITEM_TYPES_SKIP, ITEM_TYPE_GROUPS
+from src.core.enums import (
+    whoami_name, attitude_label,
+    critter_state_label, critter_goal_label,
+    critter_attitude_label, movement_type_label,
+    ITEM_TYPES_SKIP, ITEM_TYPE_GROUPS,
+)
 
 logger = logging.getLogger("core.world_parser")
 
@@ -67,7 +72,7 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
         level, object_type, type_name, whoami_id, name,
         hp, max_hp, attitude, attitude_label, state,
         dead, player_ally, critter_level, talked_to,
-        goal, gtarg, loot, loot_count,
+        goal, gtarg, movement_type, loot, loot_count,
         object_index, tile_x, tile_y
 
     item keys:
@@ -112,8 +117,13 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
                     "player_ally":    d.get("playerAlly", False),
                     "critter_level":  d.get("critterLevel", 0),
                     "talked_to":      d.get("talkedTo", 0),
-                    "goal":           d.get("goal", 0),
-                    "gtarg":          d.get("gtarg", 0),
+                    "goal":               d.get("goal", 0),
+                    "goal_label":         critter_goal_label(d.get("goal", 0)),
+                    "gtarg":              d.get("gtarg", 0),
+                    "movement_type":      d.get("movementType", 0),
+                    "movement_label":     movement_type_label(d.get("movementType", 0)),
+                    "state_label":        critter_state_label(d.get("state", 0)),
+                    "attitude_rich":      critter_attitude_label(d.get("attitude", 0)),
                     "loot":           loot,
                     "loot_count":     len(loot),
                     "object_index":   obj.get("objectIndex", d.get("objectIndex", 0)),

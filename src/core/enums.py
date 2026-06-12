@@ -1,6 +1,7 @@
 # src/core/enums.py
 import logging
-from enum import Enum
+from enum import Enum, IntEnum
+
 
 logger = logging.getLogger("core.enums")
 
@@ -486,6 +487,186 @@ PROP_ITENS = {
     234: {"mass": 0.1, "value": 10},    # Rune: Bet
     235: {"mass": 0.1, "value": 10}     # Rune: Corp
 }
+
+
+class ECritterState(IntEnum):
+    """
+    Represents the active behavioral execution state of a Critter/NPC AI.
+    Mapped from the native 90s Origin Systems AI engine.
+    """
+    INITIALIZE = 0
+    ENABLE = 1
+    CROUCH = 2
+    IDLE = 3
+    FIDGET = 4
+    TURN_TO_WANDER = 5
+    WANDER = 6
+    CONVERSE = 7
+    TURN_TO_APPROACH = 8
+    APPROACH = 9
+    COMBAT_IDLE = 10
+    COMBAT_TURN = 11
+    ATTACK = 12
+    PROJECTILE_IDLE = 13
+    PROJECTILE_ATTACK = 14
+    TURN_TO_FLEE = 15
+    FLEE = 16
+    FLINCH = 17
+    DIE = 18
+    DEAD = 19
+    CLEANUP = 20
+
+    @property
+    def label(self) -> str:
+        """Returns a clean, user-friendly UI string for the state."""
+        translations = {
+            ECritterState.INITIALIZE: "Initializing",
+            ECritterState.ENABLE: "Enabled / Active",
+            ECritterState.CROUCH: "Crouching",
+            ECritterState.IDLE: "Idling",
+            ECritterState.FIDGET: "Fidgeting",
+            ECritterState.TURN_TO_WANDER: "Turning to Wander",
+            ECritterState.WANDER: "Wandering",
+            ECritterState.CONVERSE: "Conversing / Talking",
+            ECritterState.TURN_TO_APPROACH: "Turning to Approach",
+            ECritterState.APPROACH: "Approaching Target",
+            ECritterState.COMBAT_IDLE: "Combat Idle",
+            ECritterState.COMBAT_TURN: "Turning in Combat",
+            ECritterState.ATTACK: "Attacking (Melee)",
+            ECritterState.PROJECTILE_IDLE: "Ranged Combat Idle",
+            ECritterState.PROJECTILE_ATTACK: "Attacking (Ranged)",
+            ECritterState.TURN_TO_FLEE: "Turning to Flee",
+            ECritterState.FLEE: "Fleeing",
+            ECritterState.FLINCH: "Flinching / Reeling",
+            ECritterState.DIE: "Dying Animation",
+            ECritterState.DEAD: "Dead / Corpse State",
+            ECritterState.CLEANUP: "Cleaning Up Instance"
+        }
+        return translations.get(self, f"Unknown State ({self.value})")
+
+
+class ECritterGoal(IntEnum):
+    """
+    Represents the high-level objective or agenda assigned to a Critter.
+    Cleans up the raw decompiled decompiler suffixes into readable targets.
+    """
+    STAND_0 = 0
+    GO_TO = 1
+    WANDER_2 = 2
+    FOLLOW_TARGET = 3
+    WANDER_4 = 4
+    ATTACK_TARGET_5 = 5
+    FLEE_TARGET = 6
+    STAND_7 = 7
+    WANDER_8 = 8
+    ATTACK_TARGET_9 = 9
+    AWAIT_CONVERSATION = 10
+    STAND_11 = 11
+    STAND_12  = 12
+    STAND_13  = 13
+    STAND_14  = 14
+
+    @property
+    def label(self) -> str:
+        """Maps decompiled identifier tokens into descriptive UI names."""
+        translations = {
+            ECritterGoal.STAND_0: "Standing Still (Static)",
+            ECritterGoal.GO_TO: "Moving to Coordinate",
+            ECritterGoal.WANDER_2: "Wandering Area (Type 2)",
+            ECritterGoal.FOLLOW_TARGET: "Following / Guarding Target",
+            ECritterGoal.WANDER_4: "Patrolling Perimeter (Type 4)",
+            ECritterGoal.ATTACK_TARGET_5: "Engaging Target in Combat",
+            ECritterGoal.FLEE_TARGET: "Fleeing from Threat",
+            ECritterGoal.STAND_7: "Alert Standing (Guard Duty)",
+            ECritterGoal.WANDER_8: "Searching Area (Type 8)",
+            ECritterGoal.ATTACK_TARGET_9: "Hunting Down Target",
+            ECritterGoal.AWAIT_CONVERSATION: "Waiting for Player Chat",
+            ECritterGoal.STAND_11: "Passive Standing (Civilian)",
+            ECritterGoal.STAND_12: "Sleeping / Inert",
+            ECritterGoal.STAND_13: "Standing (Variant 13)",
+            ECritterGoal.STAND_14: "Standing (Variant 14)",
+        }
+        return translations.get(self, f"Unknown Goal ({self.value})")
+
+    @classmethod
+    def from_label(cls, ui_text: str):
+        """Performs reverse look-up from UI string back to Enum integer value."""
+        for item in cls:
+            if item.label == ui_text:
+                return item
+        raise ValueError(f"Invalid UI Label text supplied: {ui_text}")
+
+
+class ECritterAttitude(IntEnum):
+    """Represents the moral disposition of the NPC toward the Avatar."""
+    HOSTILE = 0
+    UPSET = 1
+    MELLOW = 2
+    FRIENDLY = 3
+
+    @property
+    def label(self) -> str:
+        """Returns a professional disposition text for the UI view."""
+        translations = {
+            ECritterAttitude.HOSTILE: "Hostile (Attack on Sight)",
+            ECritterAttitude.UPSET: "Upset / Suspicious",
+            ECritterAttitude.MELLOW: "Mellow / Neutral",
+            ECritterAttitude.FRIENDLY: "Friendly / Ally"
+        }
+        return translations.get(self, f"Unknown Attitude ({self.value})")
+
+
+class EMovementType(IntEnum):
+    """Defines the physics locomotion restrictions of the creature archetype."""
+    TWILIGHT_ZONE = 0
+    WALKING = 1
+    FLYING = 2
+    SWIMMING = 3
+    CREEPING = 4
+    CRAWLING = 5
+
+
+class ETradeResult(IntEnum):
+    """Represents the internal state resolution during NPC barter mechanics."""
+    UNDEF = 0
+    WHAT = 1
+    TIRED = 2
+    BAD = 3
+    NO = 4
+    YES = 5
+
+
+def critter_state_label(state_id: int) -> str:
+    """int → label legível de ECritterState."""
+    try:
+        return ECritterState(state_id).label
+    except ValueError:
+        return f"State {state_id}"
+
+
+def critter_goal_label(goal_id: int) -> str:
+    """int → label legível de ECritterGoal."""
+    try:
+        return ECritterGoal(goal_id).label
+    except ValueError:
+        return f"Goal {goal_id}"
+
+
+def critter_attitude_label(attitude_id: int) -> str:
+    """int → label legível de ECritterAttitude (da DLL)."""
+    try:
+        return ECritterAttitude(attitude_id).label
+    except ValueError:
+        return f"Attitude {attitude_id}"
+
+
+def movement_type_label(movement_id: int) -> str:
+    """int → label legível de EMovementType."""
+    try:
+        return EMovementType(movement_id).name.capitalize()
+    except ValueError:
+        return f"Move {movement_id}"
+
 
 def get_object_name(object_id: int) -> str:
     """Retorna o nome do objeto ou 'Unknown#ID' se não mapeado."""
