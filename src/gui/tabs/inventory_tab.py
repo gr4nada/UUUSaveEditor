@@ -6,7 +6,8 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import logging
 
-from src.core.inventory import get_equipment_summary
+from src.core.inventory              import get_equipment_summary
+from src.gui.widgets.icon_loader     import IconLoader, ICON_MEDIUM
 
 logger = logging.getLogger("gui.tabs.inventory")
 
@@ -36,7 +37,7 @@ class InventoryTab(ttk.Frame):
     def __init__(self, parent: ttk.Notebook) -> None:
         super().__init__(parent, padding=5)
         self._slot_labels:  list[tk.Label]         = []
-        self._icon_cache:   dict[int, ImageTk.PhotoImage] = {}
+        self._loader = IconLoader.get_instance()
         self._on_slot_clicked = None
         self._build()
 
@@ -44,7 +45,7 @@ class InventoryTab(ttk.Frame):
         self._on_slot_clicked = fn
 
     def refresh(self, raw_save_data: dict) -> None:
-        self._icon_cache.clear()
+
         equip_summary = get_equipment_summary(raw_save_data)
         for item in equip_summary:
             idx = item["slot_index"]
@@ -56,7 +57,7 @@ class InventoryTab(ttk.Frame):
                 lbl.image = None
                 lbl.unbind("<Enter>"); lbl.unbind("<Leave>")
             else:
-                photo = self._load_icon(obj_type)
+                photo = self._loader.get_item_icon(obj_type, ICON_MEDIUM)
                 lbl.config(image=photo, text="", bg="#1a1a1a")
                 lbl.image = photo
 
@@ -109,34 +110,3 @@ class InventoryTab(ttk.Frame):
     def _handle_click(self, slot_index: int) -> None:
         if self._on_slot_clicked:
             self._on_slot_clicked(slot_index)
-
-    def _load_icon(self, object_type: int) -> ImageTk.PhotoImage:
-        if object_type in self._icon_cache:
-            return self._icon_cache[object_type]
-        path = os.path.join("assets", "icons", f"{object_type}.png")
-        size = (44, 44)
-        if object_type != 0 and os.path.exists(path):
-            try:
-                img = Image.open(path).convert("RGBA")
-                
-                # Sanitize backgrounds: Convert white/near-white pixel layouts into alpha transparent channels
-                cleaned = [
-                    (0, 0, 0, 0) if p[0] >= 245 and p[1] >= 245 and p[2] >= 245 else p
-                    for p in img.getdata()
-                ]
-                img.putdata(cleaned)
-                img.thumbnail(size, Image.Resampling.NEAREST)
-                
-                # Center-paste sanitized assets onto a transparent canvas square bounding frame
-                canvas = Image.new("RGBA", size, (0, 0, 0, 0))
-                canvas.paste(img, ((size[0]-img.width)//2, (size[1]-img.height)//2), img)
-                photo = ImageTk.PhotoImage(canvas)
-                self._icon_cache[object_type] = photo
-                return photo
-            except Exception as e:
-                logger.error("Icon load error %d: %s", object_type, e)
-                
-        # Generate dark fallback placeholder tile if asset structures fail or map keys are missing
-        fallback = ImageTk.PhotoImage(Image.new("RGBA", size, (34, 34, 34, 255)))
-        self._icon_cache[object_type] = fallback
-        return fallback

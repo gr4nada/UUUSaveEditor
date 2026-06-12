@@ -1,53 +1,45 @@
 # src/gui/tabs/world_objects_tab.py
 """
-Aba 'World Objects' — explorer de items do mundo.
+Aba 'World Objects' — Item Explorer com ícones reais + Summary.
 
-Sub-notebook:
-  Items   — Treeview com Icon / Name / Type / Level / Qty / Enchantment
-             Filtro por grupo + campo de busca
-  Summary — contagens por tipo e por nível
+Treeview: [ícone] / Name / Type / Lv / Qty / Enchantment / Location
+Ícones carregados de assets/icons/{objectType}.png via IconLoader.
 """
+from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
-from src.core.world_parser import parse_world, filter_items
-from src.core.enums        import ITEM_TYPE_GROUPS
 
+from src.core.world_parser       import parse_world, filter_items
+from src.core.enums              import ITEM_TYPE_GROUPS
+from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
 
 _GROUPS = list(ITEM_TYPE_GROUPS.keys())
 
-# Colunas do Treeview de items
-_COLS = ("icon", "name", "type", "level", "qty", "enchant")
+_COLS = ("img", "name", "type", "level", "qty", "enchant", "loc")
 _COL_CFG = {
-    "icon":    ("",            40,  "center"),
-    "name":    ("Name",       220,  "w"),
-    "type":    ("Type",        90,  "center"),
-    "level":   ("Lv",          32,  "center"),
-    "qty":     ("Qty",         36,  "center"),
-    "enchant": ("Enchantment",160,  "w"),
+    "img":     ("",            28,  "center"),
+    "name":    ("Name",       200,  "w"),
+    "type":    ("Type",        86,  "center"),
+    "level":   ("Lv",          30,  "center"),
+    "qty":     ("Qty",         34,  "center"),
+    "enchant": ("Enchantment",150,  "w"),
+    "loc":     ("Location",    86,  "center"),
 }
 
 
 class WorldObjectsTab(ttk.Frame):
-    """
-    Aba World Objects.
-
-    API pública:
-        load(save_game) → parse + popula os dois sub-tabs
-    """
 
     def __init__(self, parent: ttk.Notebook) -> None:
         super().__init__(parent, padding=4)
         self._all_items:    list[dict] = []
         self._all_critters: list[dict] = []
+        self._loader  = IconLoader.get_instance()
+        self._row_icons: list         = []   # referências fortes
         self._build()
-
-    # ------------------------------------------------------------------
-    # API pública
-    # ------------------------------------------------------------------
 
     def load(self, save_game) -> None:
         self._all_critters, self._all_items = parse_world(save_game.raw)
-        self._populate_items()
+        self._apply_filter()
         self._populate_summary(save_game)
 
     # ------------------------------------------------------------------
@@ -58,56 +50,48 @@ class WorldObjectsTab(ttk.Frame):
         sub = ttk.Notebook(self)
         sub.pack(fill="both", expand=True)
 
-        items_frame   = ttk.Frame(sub, padding=6)
-        summary_frame = ttk.Frame(sub, padding=16)
+        items_f   = ttk.Frame(sub, padding=6)
+        summary_f = ttk.Frame(sub, padding=10)
 
-        sub.add(items_frame,   text="  Item Explorer  ")
-        sub.add(summary_frame, text="  Summary  ")
+        sub.add(items_f,   text="  Item Explorer  ")
+        sub.add(summary_f, text="  Summary  ")
 
-        self._build_item_explorer(items_frame)
-        self._build_summary(summary_frame)
+        self._build_explorer(items_f)
+        self._build_summary(summary_f)
 
-    # ------------------------------------------------------------------
-    # Item Explorer
-    # ------------------------------------------------------------------
-
-    def _build_item_explorer(self, parent: ttk.Frame) -> None:
+    def _build_explorer(self, parent: ttk.Frame) -> None:
         # ── Toolbar ──
-        toolbar = ttk.Frame(parent)
-        toolbar.pack(fill="x", pady=(0, 6))
+        tb = ttk.Frame(parent)
+        tb.pack(fill="x", pady=(0, 6))
 
-        ttk.Label(toolbar, text="Filter:").pack(side="left", padx=(0, 4))
+        ttk.Label(tb, text="Filter:").pack(side="left", padx=(0, 4))
         self._group_var = tk.StringVar(value="All")
-        group_cb = ttk.Combobox(toolbar, textvariable=self._group_var,
-                                values=_GROUPS, state="readonly", width=12)
-        group_cb.pack(side="left", padx=(0, 12))
-        group_cb.bind("<<ComboboxSelected>>", lambda _: self._apply_filter())
+        cb = ttk.Combobox(tb, textvariable=self._group_var,
+                          values=_GROUPS, state="readonly", width=12)
+        cb.pack(side="left", padx=(0, 14))
+        cb.bind("<<ComboboxSelected>>", lambda _: self._apply_filter())
 
-        ttk.Label(toolbar, text="Search:").pack(side="left", padx=(0, 4))
+        ttk.Label(tb, text="Search:").pack(side="left", padx=(0, 4))
         self._search_var = tk.StringVar()
-        search_entry = ttk.Entry(toolbar, textvariable=self._search_var, width=18)
-        search_entry.pack(side="left")
+        ttk.Entry(tb, textvariable=self._search_var, width=18).pack(side="left")
         self._search_var.trace_add("write", lambda *_: self._apply_filter())
 
-        self._count_lbl = ttk.Label(toolbar, text="", foreground="#666",
+        self._count_lbl = ttk.Label(tb, text="", foreground="#555",
                                     font=("Arial", 8))
         self._count_lbl.pack(side="right", padx=8)
 
         # ── Treeview ──
-        tree_frame = ttk.Frame(parent)
-        tree_frame.pack(fill="both", expand=True)
+        tf = ttk.Frame(parent)
+        tf.pack(fill="both", expand=True)
 
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
-        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
-        vsb.pack(side="right",  fill="y")
+        vsb = ttk.Scrollbar(tf, orient="vertical")
+        hsb = ttk.Scrollbar(tf, orient="horizontal")
+        vsb.pack(side="right", fill="y")
         hsb.pack(side="bottom", fill="x")
 
         self._tree = ttk.Treeview(
-            tree_frame,
-            columns=_COLS,
-            show="headings",
-            yscrollcommand=vsb.set,
-            xscrollcommand=hsb.set,
+            tf, columns=_COLS, show="headings",
+            yscrollcommand=vsb.set, xscrollcommand=hsb.set,
             selectmode="browse",
         )
         self._tree.pack(fill="both", expand=True)
@@ -116,17 +100,13 @@ class WorldObjectsTab(ttk.Frame):
 
         for col, (heading, width, anchor) in _COL_CFG.items():
             self._tree.heading(col, text=heading,
-                               command=lambda c=col: self._sort_by(c))
+                               command=lambda c=col: self._sort(c))
             self._tree.column(col, width=width, anchor=anchor,
                               stretch=(col == "name"))
 
-        # Cor alternada de linhas
         self._tree.tag_configure("even", background="#1a1a1a")
         self._tree.tag_configure("odd",  background="#141414")
         self._tree.tag_configure("ench", foreground="#d4af37")
-
-    def _populate_items(self) -> None:
-        self._apply_filter()
 
     def _apply_filter(self) -> None:
         group  = self._group_var.get()
@@ -134,36 +114,34 @@ class WorldObjectsTab(ttk.Frame):
         visible = filter_items(self._all_items, group, search)
 
         self._tree.delete(*self._tree.get_children())
+        self._row_icons.clear()
+
         for i, item in enumerate(visible):
             name  = item["object_name"] or f"[{item['type_name']}]"
             ench  = item["enchantment"]
-            tags  = []
-            if ench:
-                tags.append("ench")
+            loc   = f"L{item['level']} ({item['tile_x']},{item['tile_y']})"
+            tags  = ["ench"] if ench else []
             tags.append("even" if i % 2 == 0 else "odd")
 
-            self._tree.insert("", "end", values=(
-                item["icon"],
-                name,
-                item["type_name"],
-                item["level"],
-                item["quantity"],
-                ench,
+            # Ícone real do item
+            photo = self._loader.get_item_icon(item["object_type"], ICON_SMALL)
+            self._row_icons.append(photo)
+
+            iid = self._tree.insert("", "end", values=(
+                "", name, item["type_name"],
+                item["level"], item["quantity"], ench, loc,
             ), tags=tags)
+            self._tree.item(iid, image=photo)
 
         n = len(visible)
-        total = len(self._all_items)
+        t = len(self._all_items)
         self._count_lbl.config(
-            text=f"{n:,} item{'s' if n != 1 else ''}"
-                 + (f" of {total:,}" if n != total else ""))
+            text=f"{n:,} item{'s' if n!=1 else ''}"
+                 + (f" of {t:,}" if n != t else ""))
 
-    def _sort_by(self, col: str) -> None:
-        """Ordena o Treeview pela coluna clicada."""
-        col_map = {"icon": 0, "name": 1, "type": 2,
-                   "level": 3, "qty": 4, "enchant": 5}
-        idx = col_map.get(col, 1)
-        rows = [(self._tree.set(k, col), k) for k in self._tree.get_children("")]
+    def _sort(self, col: str) -> None:
         numeric = col in ("level", "qty")
+        rows = [(self._tree.set(k, col), k) for k in self._tree.get_children("")]
         try:
             rows.sort(key=lambda t: int(t[0]) if numeric else t[0].lower())
         except ValueError:
@@ -176,86 +154,60 @@ class WorldObjectsTab(ttk.Frame):
     # ------------------------------------------------------------------
 
     def _build_summary(self, parent: ttk.Frame) -> None:
-        self._summary_text = tk.Text(
-            parent,
-            font=("Consolas", 9),
-            background="#111",
-            foreground="#aaa",
-            relief="flat",
-            state="disabled",
-            wrap="none",
-        )
-        sb = ttk.Scrollbar(parent, command=self._summary_text.yview)
-        self._summary_text.configure(yscrollcommand=sb.set)
+        self._summary = tk.Text(
+            parent, font=("Consolas", 9), background="#111",
+            foreground="#aaa", relief="flat", state="disabled", wrap="none")
+        sb = ttk.Scrollbar(parent, command=self._summary.yview)
+        self._summary.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
-        self._summary_text.pack(fill="both", expand=True)
-
-        self._summary_text.tag_configure("header",  foreground="#ffffff",
-                                          font=("Consolas", 9, "bold"))
-        self._summary_text.tag_configure("value",   foreground="#4ec9b0")
-        self._summary_text.tag_configure("section", foreground="#888888")
+        self._summary.pack(fill="both", expand=True)
+        self._summary.tag_configure("h", foreground="#ffffff",
+                                    font=("Consolas", 9, "bold"))
+        self._summary.tag_configure("v", foreground="#4ec9b0")
+        self._summary.tag_configure("s", foreground="#666666")
 
     def _populate_summary(self, save_game) -> None:
         from collections import Counter
-
-        critters = self._all_critters
         items    = self._all_items
+        critters = self._all_critters
 
-        # Contagens
         by_type  = Counter(i["type_name"] for i in items)
         by_level = Counter(i["level"]     for i in items)
-        c_by_type  = Counter(c["type_name"] for c in critters)
-        c_by_level = Counter(c["level"]     for c in critters)
-        dead = sum(1 for c in critters if c["dead"])
-        named = sum(1 for c in critters if c["whoami_id"] > 0)
-        ench_count = sum(1 for i in items if i["is_enchanted"])
+        ct_type  = Counter(c["type_name"] for c in critters)
+        ct_level = Counter(c["level"]     for c in critters)
+        ench     = sum(1 for i in items    if i["is_enchanted"])
+        dead     = sum(1 for c in critters if c["dead"])
+        named    = sum(1 for c in critters if c["whoami_id"] > 0)
 
-        t = self._summary_text
+        t = self._summary
         t.config(state="normal")
         t.delete("1.0", "end")
 
-        def line(text, tag=""):
-            t.insert("end", text + "\n", tag)
+        def row(label, value):
+            t.insert("end", f"  {label:<28}", "s")
+            t.insert("end", f"{value}\n",     "v")
 
-        line(f"  World Objects Summary", "header")
-        line(f"  ──────────────────────────────────────", "section")
-        line(f"  Total items tracked:    ", "section")
-        t.insert("end", f"{len(items):,}\n", "value")
-        line(f"  Enchanted items:        ", "section")
-        t.insert("end", f"{ench_count:,}\n", "value")
-        line(f"  Total critters:         ", "section")
-        t.insert("end", f"{len(critters):,}\n", "value")
-        line(f"  Named NPCs (whoami>0):  ", "section")
-        t.insert("end", f"{named:,}\n", "value")
-        line(f"  Dead critters:          ", "section")
-        t.insert("end", f"{dead}\n", "value")
-        line("")
+        def sec(title):
+            t.insert("end", f"\n  {title}\n", "h")
+            t.insert("end", f"  {'─'*40}\n",  "s")
 
-        line("  Items by Type", "header")
-        line("  ──────────────────────────────────────", "section")
-        for tname, count in sorted(by_type.items(), key=lambda x: -x[1])[:15]:
-            line(f"  {tname:<20} ", "section")
-            t.insert("end", f"{count:,}\n", "value")
-        line("")
+        sec("World Objects Summary")
+        row("Total items tracked:", f"{len(items):,}")
+        row("Enchanted items:",     f"{ench:,}")
+        row("Total critters:",      f"{len(critters):,}")
+        row("Named NPCs:",          f"{named}")
+        row("Dead critters:",       f"{dead}")
 
-        line("  Items by Dungeon Level", "header")
-        line("  ──────────────────────────────────────", "section")
+        sec("Items by Type")
+        for name, count in sorted(by_type.items(), key=lambda x: -x[1])[:15]:
+            row(f"  {name}:", f"{count:,}")
+
+        sec("Items by Dungeon Level")
         for lvl in sorted(by_level):
-            line(f"  Level {lvl:<5}             ", "section")
-            t.insert("end", f"{by_level[lvl]:,}\n", "value")
-        line("")
+            row(f"  Level {lvl}:", f"{by_level[lvl]:,}")
 
-        line("  Critters by Type", "header")
-        line("  ──────────────────────────────────────", "section")
-        for tname, count in sorted(c_by_type.items(), key=lambda x: -x[1])[:12]:
-            line(f"  {tname:<20} ", "section")
-            t.insert("end", f"{count}\n", "value")
-        line("")
-
-        line("  Critters by Dungeon Level", "header")
-        line("  ──────────────────────────────────────", "section")
-        for lvl in sorted(c_by_level):
-            line(f"  Level {lvl:<5}             ", "section")
-            t.insert("end", f"{c_by_level[lvl]}\n", "value")
+        sec("Critters by Type")
+        for name, count in sorted(ct_type.items(), key=lambda x: -x[1])[:12]:
+            row(f"  {name}:", f"{count}")
 
         t.config(state="disabled")

@@ -1,25 +1,29 @@
 # tests/conftest.py
-import os
-import json
-import copy
-import logging
+import os, json, copy, logging
 import pytest
 
 logger = logging.getLogger("tests.conftest")
+_FIXTURE = os.path.join(os.path.dirname(__file__), "fixtures", "sample_save.json")
+
 
 @pytest.fixture
 def sample_save_path():
-    """
-    Returns the absolute file system path to the baseline sample_save.json fixture.
-    """
-    return os.path.join(os.path.dirname(__file__), "fixtures", "sample_save.json")
+    return _FIXTURE
+
 
 @pytest.fixture
 def sample_save(sample_save_path):
-    """
-    Provides a clean, isolated deep copy of the save data stream for each independent test execution.
-    Prevents cross-test environment contamination from mutations or cheats.
-    """
-    with open(sample_save_path, "r", encoding="utf-8") as file_stream:
-        data = json.load(file_stream)
+    with open(sample_save_path, encoding="utf-8") as f:
+        data = json.load(f)
     return copy.deepcopy(data)
+
+
+@pytest.fixture
+def save_game(sample_save):
+    from src.core.save_model import SaveGame
+    return SaveGame(sample_save)
+
+
+@pytest.fixture
+def player(save_game):
+    return save_game.player

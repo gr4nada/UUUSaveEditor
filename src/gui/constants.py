@@ -138,19 +138,19 @@ ITEM_ID_TO_SPRITE_BASE = {
 }
 
 OFFSETS_MALE = {
-    "head":    (10, -5),   
-    "chest":   (-1, 20),  
-    "legs":    (13,27),  
-    "hands":   (-3, 59),  
-    "feet":    (8, 109), 
+    "head":    (44, 3),   
+    "chest":   (27, 53),  
+    "legs":    (49,62),  
+    "hands":   (22, 120),  
+    "feet":    (40,210), 
 }
 
 OFFSETS_FEMALE = {
-    "head":    (6, -6),   
-    "chest":   (-4, 20),  
-    "legs":    (9,26),  
-    "hands":   (-6, 60),  
-    "feet":    (4, 109), 
+    "head":    (44, 4),   
+    "chest":   (27, 53),  
+    "legs":    (49,62),  
+    "hands":   (22, 121),  
+    "feet":    (40, 209), 
 }
 
 ITEM_ID_TO_PART_TYPE = {
@@ -158,5 +158,5 @@ ITEM_ID_TO_PART_TYPE = {
     35: "legs",  36: "legs",  37: "legs",
     38: "hands", 39: "hands", 40: "hands",
     41: "feet",  42: "feet",  43: "feet",
-    44: "head",  45: "head",  46: "head", 47: "head"
+    44: "head",  45: "head",  46: "head", 47: "feet", 48:"head",49:"head",
 }
