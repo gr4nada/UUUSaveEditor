@@ -16,7 +16,7 @@ Regras de portrait/gender:
 """
 import tkinter as tk
 from tkinter import ttk
-from src.gui.constants import UNDERWORLD_CLASSES
+from src.gui.constants import UNDERWORLD_CLASSES, THEME
 
 
 def _fmt_time(sec: float) -> str:
@@ -154,9 +154,9 @@ class CharacterTab(ttk.Frame):
         # Statistics
         for key, _, extractor in _STATISTICS:
             try:
-                self._stat_lbls[key].config(text=extractor(player), foreground="#ccc")
+                self._stat_lbls[key].config(text=extractor(player), foreground=THEME["fg_stat_value"])
             except Exception:
-                self._stat_lbls[key].config(text="—", foreground="#555")
+                self._stat_lbls[key].config(text="—", foreground=THEME["fg_faint"])
 
         self._suppress_traces = False
 
@@ -268,7 +268,7 @@ class CharacterTab(ttk.Frame):
         row += 1
 
         self._lbl_row(lf, "Dungeon Level:", row)
-        self._dungeon_lbl = ttk.Label(lf, text="—", foreground="#888")
+        self._dungeon_lbl = ttk.Label(lf, text="—", foreground=THEME["fg_dungeon"])
         self._dungeon_lbl.grid(row=row, column=1, sticky="w", pady=3)
 
     def _build_attributes(self, parent) -> None:
@@ -297,7 +297,7 @@ class CharacterTab(ttk.Frame):
         lf = ttk.LabelFrame(parent, text=" Statistics ", padding=10)
         lf.pack(fill="x", pady=(0, 8))
 
-        ttk.Label(lf, text="read-only", foreground="#444",
+        ttk.Label(lf, text="read-only", foreground=THEME["fg_dead"],
                   font=("Arial", 7, "italic")).grid(
             row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
 
@@ -305,7 +305,7 @@ class CharacterTab(ttk.Frame):
             ttk.Label(lf, text=label + ":", anchor="e",
                       width=_LBL_W).grid(row=i + 1, column=0,
                                          sticky="e", pady=3, padx=(0, 8))
-            lbl = ttk.Label(lf, text="—", foreground="#555",
+            lbl = ttk.Label(lf, text="—", foreground=THEME["fg_faint"],
                             width=12, anchor="w")
             lbl.grid(row=i + 1, column=1, sticky="w", pady=3)
             self._stat_lbls[key] = lbl

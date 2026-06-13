@@ -1,3 +1,4 @@
+import json
 import logging
 
 logger = logging.getLogger("core.inventory")
@@ -209,3 +210,95 @@ def update_equipped_item(
 
     logger.info("Slot #%d updated: type=%d name=%r enchantment=%r",
                 slot_index, new_object_type, new_name, enchantment)
+
+
+# ---------------------------------------------------------------------------
+# Main Inventory (inventoryData.mainInventory) — itens carregados pelo jogador
+# fora dos slots de equipamento. Cada entrada é um objeto de jogo completo
+# (objectName/objectType/quantity/jsonData...), podendo conter "contents"
+# (containers como packs, baús, etc).
+#
+# Esta primeira versão suporta apenas o nível superior da lista: ajustar
+# quantidade e remover itens. Edição recursiva de "contents" de containers
+# fica para uma iteração futura.
+# ---------------------------------------------------------------------------
+
+def get_main_inventory_summary(data: dict) -> list[dict]:
+    """
+    Retorna uma lista de dicts para exibição na aba 'Main Inventory':
+        index, objectName, objectTypeName, objectType, quantity,
+        enchantment, contents_count
+
+    `index` é a posição na lista mainInventory original — usado por
+    set_main_inventory_quantity / delete_main_inventory_item para
+    referenciar o item correto.
+    """
+    items = data.get("inventoryData", {}).get("mainInventory", [])
+    summary = []
+    for idx, item in enumerate(items):
+        jd = _jsondata(item)
+        name = item.get("objectName") or jd.get("objectName") or "Unknown"
+        type_name = item.get("objectTypeName", "")
+        obj_type = item.get("objectType", 0)
+        quantity = jd.get("quantity", item.get("quantity", 1))
+        enchantment = jd.get("enchantmentName", "") or ""
+        contents = item.get("contents") or jd.get("contents") or []
+
+        summary.append({
+            "index":          idx,
+            "objectName":     name,
+            "objectTypeName": type_name,
+            "objectType":     obj_type,
+            "quantity":       quantity,
+            "enchantment":    enchantment,
+            "contents_count": len(contents),
+        })
+    return summary
+
+
+def set_main_inventory_quantity(data: dict, index: int, quantity: int) -> None:
+    """
+    Atualiza a quantidade de um item de mainInventory (nível superior).
+    Atualiza tanto o campo de nível superior `quantity` (quando presente)
+    quanto `jsonData.quantity`, para manter ambas as representações
+    consistentes com o que o jogo espera ao reler o save.
+    """
+    items = data.get("inventoryData", {}).get("mainInventory", [])
+    if not (0 <= index < len(items)):
+        logger.error("Main inventory index out of range: %d", index)
+        return
+
+    quantity = max(1, int(quantity))
+    item = items[index]
+
+    if "quantity" in item:
+        item["quantity"] = quantity
+
+    jd = _jsondata(item)
+    if jd:
+        jd["quantity"] = quantity
+        item["jsonData"] = json.dumps(jd)
+
+    logger.info("Main inventory item #%d quantity set to %d", index, quantity)
+
+
+def delete_main_inventory_item(data: dict, index: int) -> None:
+    """Remove um item de nível superior do mainInventory."""
+    items = data.get("inventoryData", {}).get("mainInventory", [])
+    if not (0 <= index < len(items)):
+        logger.error("Main inventory index out of range: %d", index)
+        return
+
+    removed = items.pop(index)
+    logger.info("Main inventory item #%d removed: %r", index, removed.get("objectName"))
+
+
+def _jsondata(item: dict) -> dict:
+    """Decodifica item['jsonData'] de forma segura, retornando {} em caso de erro."""
+    raw = item.get("jsonData", "")
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw)
+    except Exception:
+        return {}

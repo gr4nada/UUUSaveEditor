@@ -2,7 +2,7 @@
 import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
-from src.gui.constants import SPELL_DATABASE
+from src.gui.constants import SPELL_DATABASE, THEME
 from src.core.inventory import WIKI_ITEM_DATABASE, update_equipped_item
 
 logger = logging.getLogger("gui.dialogs")
@@ -30,7 +30,7 @@ def open_equipment_tuning_dialog(parent, raw_save_data, slot_index, slot_name, o
     right_box = ttk.LabelFrame(dialog, text=" 2. Injected Magic Tuning (SSpell) ", padding=10)
     right_box.pack(side="right", fill="both", expand=True, padx=5, pady=5)
 
-    spell_listbox = tk.Listbox(right_box, width=38, height=18, font=("Courier", 9), fg="#107c10")
+    spell_listbox = tk.Listbox(right_box, width=38, height=18, font=("Courier", 9), fg=THEME["dialog_spell_fg"])
     spell_listbox.pack(fill="both", expand=True)
     spell_listbox.insert(tk.END, " [ Non-Magical / Clean Item ]")
     for spell in SPELL_DATABASE:

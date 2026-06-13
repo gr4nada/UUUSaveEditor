@@ -15,18 +15,15 @@ EditorApp — layout redesenhado.
 │  [⚡ Max Skills]                                        [💾 Save]     │
 └───────────────────────────────────────────────────────────────────────┘
 """
-import json
 import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
 
-from src.core.save_manager import load_save, save_game_data
-from src.core.character    import update_character, cheat_max_all_skills
-from src.core.inventory    import get_equipment_summary
-from src.core.save_model   import SaveGame
-from src.gui.constants     import QUEST_FLAGS
+from src.core.save_controller import SaveController, SavePayload
+from src.gui.constants     import THEME
 from src.gui.dialogs       import open_equipment_tuning_dialog
-from src.gui.widgets       import SaveHeaderFrame, CharacterPreviewWidget
+from src.gui.widgets       import SaveHeaderFrame, CharacterPreviewWidget,\
+                                   Tooltip, attach_tooltip
 
 from src.gui.tabs.character_tab     import CharacterTab
 from src.gui.tabs.skills_quests_tab import SkillsQuestsTab
@@ -49,12 +46,13 @@ class EditorApp:
         self.root.geometry("1100x780")
         self.root.resizable(False, False)
 
-        self._raw_save:      dict | None     = None
-        self._save_game:     SaveGame | None = None
-        self._selected_slot: int             = 0
+        self._controller = SaveController()
+        self._dirty: bool = False
 
         self._setup_styles()
         self._build_ui()
+
+        self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     # ------------------------------------------------------------------
     # Estilos
@@ -64,9 +62,9 @@ class EditorApp:
         s = ttk.Style()
         s.theme_use("clam")
         s.configure("TNotebook.Tab",     padding=[12, 5], font=("Arial", 9))
-        s.configure("TLabelframe",       background="#252525")
-        s.configure("TLabelframe.Label", foreground="#777", font=("Arial", 8, "bold"))
-        s.configure("TFrame",            background="#252525")
+        s.configure("TLabelframe",       background=THEME["bg_app"])
+        s.configure("TLabelframe.Label", foreground=THEME["fg_labelframe"], font=("Arial", 8, "bold"))
+        s.configure("TFrame",            background=THEME["bg_app"])
 
     # ------------------------------------------------------------------
     # Construção
@@ -114,6 +112,10 @@ class EditorApp:
         # Preview ao vivo: portrait muda → preview atualiza
         self._tab_character.on_portrait_change(self._on_portrait_change)
 
+        # Atalhos de teclado
+        self.root.bind_all("<Control-s>", lambda _: self._on_save())
+        self.root.bind_all("<Control-S>", lambda _: self._on_save())
+
         # --- Footer ---
         footer = ttk.Frame(self.root, padding=(12, 6))
         footer.pack(fill="x", side="bottom")
@@ -122,15 +124,23 @@ class EditorApp:
             footer, text="⚡  Max All Skills (30)",
             command=self._on_cheat, state="disabled")
         self._cheat_btn.pack(side="left")
+        Tooltip(self._cheat_btn, "Set all 20 skills to 30 (maximum)")
+
+        self._reload_btn = ttk.Button(
+            footer, text="↺  Reload from Disk",
+            command=self._on_reload, state="disabled")
+        self._reload_btn.pack(side="left", padx=(8, 0))
+        Tooltip(self._reload_btn, "Discard all unsaved changes and reload from disk")
 
         self._save_btn = ttk.Button(
             footer, text="💾  Save Changes",
             command=self._on_save, state="disabled")
         self._save_btn.pack(side="right")
+        Tooltip(self._save_btn, "Save all changes to the save file  (Ctrl+S)")
 
     def _placeholder_tab(self, text: str) -> ttk.Frame:
         f = ttk.Frame(self._nb, padding=30)
-        ttk.Label(f, text=text, foreground="#555",
+        ttk.Label(f, text=text, foreground=THEME["fg_dead"],
                   font=("Arial", 10, "italic")).pack(pady=60)
         return f
 
@@ -138,129 +148,130 @@ class EditorApp:
     # Helpers
     # ------------------------------------------------------------------
 
-    def _equipped_for_preview(self) -> dict:
-        """Retorna {slot_index: {objectType, qualityClass}} do save atual."""
-        if not self._raw_save:
-            return {}
-        result = {}
-        items = self._raw_save.get("inventoryData", {}).get("equippedItems", [])
-        for idx, item in enumerate(items):
-            jd = {}
-            if item.get("jsonData"):
-                try:
-                    jd = json.loads(item["jsonData"])
-                except Exception:
-                    pass
-            result[idx] = {
-                "objectType":   item.get("objectType", 0),
-                "qualityClass": jd.get("qualityClass", 0),
-            }
-        return result
-
-    def _refresh_preview(self) -> None:
-        if not self._save_game:
+    def _refresh_preview(self, portrait_id: int | None = None) -> None:
+        if not self._controller.save_game:
             return
-        self._preview.update(
-            portrait_id    = self._save_game.player.portrait,
-            equipped_slots = self._equipped_for_preview(),
-        )
+        self._preview.update(**self._controller.preview_data(portrait_id))
 
-    def _inject_dungeon_level(self, player, raw_save: dict) -> None:
-        """
-        Injeta o dungeon level actual no playerData temporariamente
-        para que character_tab.load() o possa exibir sem alterar o model.
-        """
-        player._p["__dungeon_level__"] = raw_save.get("currentLevel", "—")
+    def _mark_dirty(self, _event=None) -> None:
+        if not self._dirty:
+            self._dirty = True
+            self._update_title()
+
+    def _update_title(self) -> None:
+        """Reflete dirty state no título da janela com prefixo ✱."""
+        if self._dirty:
+            self.root.title(f"✱ {_TITLE}")
+        else:
+            self.root.title(_TITLE)
+
+    def _clear_dirty(self) -> None:
+        self._dirty = False
+        self._update_title()
+
+    def _on_close(self) -> None:
+        if self._dirty:
+            if not messagebox.askyesno(
+                "Unsaved Changes",
+                "You have unsaved changes. Are you sure you want to close without saving?",
+                icon="warning"):
+                return
+        self.root.destroy()
 
     # ------------------------------------------------------------------
     # Event handlers
     # ------------------------------------------------------------------
 
     def _on_load(self) -> None:
-        self._selected_slot = self._slot_combo.current()
+        self._load_slot(self._slot_combo.current())
+
+    def _on_reload(self) -> None:
+        if not self._controller.is_loaded:
+            return
+        if self._dirty:
+            if not messagebox.askyesno(
+                "Discard Changes",
+                "Reload from disk and discard all unsaved changes?",
+                icon="warning"):
+                return
+        self._load_slot(self._controller.selected_slot)
+
+    def _load_slot(self, slot: int) -> None:
         try:
-            self._raw_save  = load_save(self._selected_slot)
-            self._save_game = SaveGame(self._raw_save)
-            player = self._save_game.player
+            save_game = self._controller.load(slot)
+            raw_save  = self._controller.raw_save
 
-            self._inject_dungeon_level(player, self._raw_save)
+            self._tab_character.load(save_game.player)
+            self._tab_skills.load(save_game.player)
+            self._tab_magic.load(save_game.player)
+            self._tab_inventory.refresh(raw_save)
+            self._tab_world.load(save_game)
 
-            self._tab_character.load(player)
-            self._tab_skills.load(player)
-            self._tab_magic.load(player)
-            self._tab_inventory.refresh(self._raw_save)
-            self._tab_world.load(self._save_game)
+            critters, _items = self._controller.parse_world()
+            self._tab_critters.load(critters)
 
-            from src.core.world_parser import parse_world
-            _critters, _items = parse_world(self._raw_save)
-            self._tab_critters.load(_critters)
-
-            self._header.update_from_save(self._raw_save, self._selected_slot)
+            self._header.update_from_save(raw_save, self._controller.selected_slot)
             self._refresh_preview()
 
             self._save_btn.config(state="normal")
             self._cheat_btn.config(state="normal")
+            self._reload_btn.config(state="normal")
+
+            self._clear_dirty()
+            self.root.bind_all("<Key>", self._mark_dirty, add="+")
+            self.root.bind_all("<Button-1>", self._mark_dirty, add="+")
         except Exception as exc:
-            logger.exception("Load failed slot=%d", self._selected_slot)
+            logger.exception("Load failed slot=%d", slot)
             messagebox.showerror("Load Error", str(exc))
 
     def _on_save(self) -> None:
-        if not self._raw_save:
+        if not self._controller.is_loaded:
             return
         try:
-            attrs  = self._tab_character.get_values()
-            skills = self._tab_skills.get_skills()
+            payload = SavePayload(
+                attrs       = self._tab_character.get_values(),
+                skills      = self._tab_skills.get_skills(),
+                flags       = self._tab_skills.get_flags(),
+                cast_spells = self._tab_magic.get_spells(),
+            )
+            self._controller.save(payload)
 
-            qlist: list = self._raw_save["playerData"].get("questFlags", [])
-            max_id = max(q["id"] for q in QUEST_FLAGS)
-            while len(qlist) <= max_id:
-                qlist.append(False)
-            for q in QUEST_FLAGS:
-                qlist[q["id"]] = self._tab_skills.get_flags()[q["flag"]]
-            self._raw_save["playerData"]["questFlags"] = qlist
-
-            update_character(self._raw_save, attrs, skills)
-            save_game_data(self._selected_slot, self._raw_save)
-
-            self._save_game = SaveGame(self._raw_save)
-            self._inject_dungeon_level(self._save_game.player, self._raw_save)
             self._refresh_preview()
-            self._header.update_from_save(self._raw_save, self._selected_slot)
+            self._header.update_from_save(self._controller.raw_save, self._controller.selected_slot)
+            self._clear_dirty()
 
             messagebox.showinfo("Saved", "Changes written to save file.")
         except ValueError:
             messagebox.showerror("Input Error", "Invalid value — check numeric fields.")
         except Exception as exc:
-            logger.exception("Save failed slot=%d", self._selected_slot)
+            logger.exception("Save failed slot=%d", self._controller.selected_slot)
             messagebox.showerror("Save Error", str(exc))
 
     def _on_cheat(self) -> None:
-        if not self._raw_save:
+        if not self._controller.is_loaded:
             return
-        cheat_max_all_skills(self._raw_save, value=30)
+        self._controller.cheat_max_skills(value=30)
         self._tab_skills.maximize(30)
         messagebox.showinfo("Cheat", "All skills set to 30.")
 
     def _on_equipment_slot_clicked(self, slot_index: int) -> None:
-        if not self._raw_save:
+        if not self._controller.is_loaded:
             messagebox.showwarning("No Save", "Load a save first.")
             return
-        equip = get_equipment_summary(self._raw_save)
+        equip = self._controller.equipment_summary()
         open_equipment_tuning_dialog(
             self.root,
-            self._raw_save,
+            self._controller.raw_save,
             slot_index,
             equip[slot_index]["slot_name"],
             lambda: (
-                self._tab_inventory.refresh(self._raw_save),
+                self._tab_inventory.refresh(self._controller.raw_save),
                 self._refresh_preview(),
             ),
         )
 
     def _on_portrait_change(self, portrait_id: int) -> None:
         """Portrait muda no CharacterTab → preview atualiza imediatamente."""
-        if self._raw_save:
-            self._preview.update(
-                portrait_id    = portrait_id,
-                equipped_slots = self._equipped_for_preview(),
-            )
+        if not self._controller.is_loaded:
+            return
+        self._refresh_preview(portrait_id)

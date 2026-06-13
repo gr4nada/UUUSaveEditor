@@ -8,6 +8,7 @@ Exibe apenas dados do arquivo de save, não do personagem:
 import tkinter as tk
 from tkinter import ttk
 import logging
+from src.gui.constants import THEME
 
 logger = logging.getLogger("gui.widgets.save_header")
 
@@ -41,14 +42,14 @@ class SaveHeaderFrame(ttk.Frame):
 
             self._info_lbl.config(
                 text=f"Loaded: {display}     Saved: {saved}",
-                foreground="#aaa",
+                foreground=THEME["fg_secondary"],
             )
         except Exception as e:
             logger.error("Header update error: %s", e)
             self.clear()
 
     def clear(self) -> None:
-        self._info_lbl.config(text="No save loaded", foreground="#555")
+        self._info_lbl.config(text="No save loaded", foreground=THEME["fg_faint"])
 
     def set_load_command(self, fn) -> None:
         self._load_btn.config(command=fn)

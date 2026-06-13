@@ -3,7 +3,7 @@
 import tkinter as tk
 from tkinter import ttk
 from src.core.enums import NOMES_SKILLS
-from src.gui.constants import QUEST_FLAGS
+from src.gui.constants import QUEST_FLAGS, THEME
 
 
 class SkillsQuestsTab(ttk.Frame):
@@ -52,7 +52,7 @@ class SkillsQuestsTab(ttk.Frame):
         active = sum(1 for v in gv if v)
         self._gv_label.config(
             text=f"{active} active  /  {len(gv)} total global variables",
-            foreground="#aaa")
+            foreground=THEME["fg_secondary"])
 
     def get_skills(self) -> dict[str, int]:
         return {name: int(self._skill_vars[name].get() or 0) for name in NOMES_SKILLS}
@@ -112,15 +112,15 @@ class SkillsQuestsTab(ttk.Frame):
     def _build_quests(self, parent) -> None:
         ttk.Label(parent,
                   text="Double-click to toggle a flag.",
-                  foreground="#666", font=("Arial", 8, "italic")).pack(pady=(0, 6))
+                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic")).pack(pady=(0, 6))
         container = ttk.Frame(parent)
         container.pack(fill="both", expand=True)
         sb = ttk.Scrollbar(container)
         sb.pack(side="right", fill="y")
         self._quest_listbox = tk.Listbox(
             container, font=("Consolas", 10),
-            background="#1e1e1e", foreground="#888",
-            selectbackground="#264f78", highlightthickness=0,
+            background=THEME["list_bg"], foreground=THEME["tag_quest_off"],
+            selectbackground=THEME["list_select"], highlightthickness=0,
             yscrollcommand=sb.set)
         self._quest_listbox.pack(fill="both", expand=True, side="left")
         sb.config(command=self._quest_listbox.yview)
@@ -128,12 +128,12 @@ class SkillsQuestsTab(ttk.Frame):
         self._quest_listbox.bind("<Double-Button-1>", self._on_toggle)
 
     def _build_global_vars(self, parent) -> None:
-        self._gv_label = ttk.Label(parent, text="—", foreground="#666",
+        self._gv_label = ttk.Label(parent, text="—", foreground=THEME["fg_dim"],
                                    font=("Arial", 9))
         self._gv_label.pack(pady=10)
         ttk.Label(parent,
                   text="Global variable editing not yet implemented.",
-                  foreground="#555", font=("Arial", 8, "italic")).pack()
+                  foreground=THEME["fg_faint"], font=("Arial", 8, "italic")).pack()
 
     def _on_select(self, _event) -> None:
         sel = self._quest_listbox.curselection()
@@ -158,5 +158,5 @@ class SkillsQuestsTab(ttk.Frame):
     def _insert_quest_row(self, index, floor, flag_name, is_active) -> None:
         icon = "[✓]" if is_active else "[ ]"
         self._quest_listbox.insert(index, f"  {icon}  {floor:<10} {flag_name}")
-        fg = "#4ec9b0" if is_active else "#888888"
+        fg = THEME["tag_quest_on"] if is_active else THEME["tag_quest_off"]
         self._quest_listbox.itemconfig(index, foreground=fg)

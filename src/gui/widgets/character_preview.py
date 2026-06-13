@@ -26,7 +26,7 @@ _PORTRAIT_SZ  = (120, 120)
 _DOLL_W       = 180
 _DOLL_H       = 300
 
-from src.gui.constants import OFFSETS_FEMALE, OFFSETS_MALE, ITEM_ID_TO_PART_TYPE, ITEM_ID_TO_SPRITE_BASE 
+from src.gui.constants import OFFSETS_FEMALE, OFFSETS_MALE, ITEM_ID_TO_PART_TYPE, ITEM_ID_TO_SPRITE_BASE, THEME
 
 def _strip_white(img: Image.Image) -> Image.Image:
     img = img.convert("RGBA")
@@ -90,7 +90,8 @@ class CharacterPreviewWidget(ttk.LabelFrame):
         # Portrait canvas
         self._portrait_canvas = tk.Canvas(
             self, width=_PORTRAIT_SZ[0], height=_PORTRAIT_SZ[1],
-            bg="#111", highlightthickness=1, highlightbackground="#2a2a2a")
+            bg=THEME["bg_panel"], highlightthickness=1,
+            highlightbackground=THEME["border_subtle"])
         self._portrait_canvas.pack(pady=(2, 6))
 
         # Bloco de identidade
@@ -102,13 +103,13 @@ class CharacterPreviewWidget(ttk.LabelFrame):
         self._level_var = tk.StringVar(value="—")
 
         ttk.Label(id_frame, textvariable=self._name_var,
-                  font=("Arial", 9, "bold"), foreground="#ffffff",
+                  font=("Arial", 9, "bold"), foreground=THEME["fg_primary"],
                   anchor="center").pack(fill="x")
         ttk.Label(id_frame, textvariable=self._class_var,
-                  font=("Arial", 8), foreground="#aaaaff",
+                  font=("Arial", 8), foreground=THEME["fg_class"],
                   anchor="center").pack(fill="x")
         ttk.Label(id_frame, textvariable=self._level_var,
-                  font=("Arial", 8), foreground="#888",
+                  font=("Arial", 8), foreground=THEME["fg_level"],
                   anchor="center").pack(fill="x")
 
         ttk.Separator(self, orient="horizontal").pack(fill="x", padx=4, pady=4)
@@ -116,7 +117,8 @@ class CharacterPreviewWidget(ttk.LabelFrame):
         # Paper doll canvas
         self._doll_canvas = tk.Canvas(
             self, width=_DOLL_W, height=_DOLL_H,
-            bg="#0d0d0d", highlightthickness=1, highlightbackground="#2a2a2a")
+            bg=THEME["bg_deep"], highlightthickness=1,
+            highlightbackground=THEME["border_subtle"])
         self._doll_canvas.pack(pady=(0, 4))
 
         self.clear()
@@ -238,7 +240,11 @@ class CharacterPreviewWidget(ttk.LabelFrame):
 
     @staticmethod
     def _placeholder(canvas: tk.Canvas, size: tuple, label: str = "") -> None:
+        from src.gui.constants import THEME as _T
         w, h = size
-        canvas.create_rectangle(1, 1, w-1, h-1, outline="#1e1e1e", fill="#0a0a0a")
+        canvas.create_rectangle(1, 1, w-1, h-1,
+                                 outline=THEME["border_placeholder"],
+                                 fill=THEME["bg_panel"])
         if label:
-            canvas.create_text(w//2, h//2, text=label, fill="#2a2a2a", font=("Arial", 9))
+            canvas.create_text(w//2, h//2, text=label,
+                               fill=THEME["fg_placeholder"], font=("Arial", 9))

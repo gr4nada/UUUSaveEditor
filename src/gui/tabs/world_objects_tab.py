@@ -12,6 +12,7 @@ from tkinter import ttk
 from src.core.world_parser       import parse_world, filter_items
 from src.core.enums              import ITEM_TYPE_GROUPS
 from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
+from src.gui.constants           import THEME
 
 _GROUPS = list(ITEM_TYPE_GROUPS.keys())
 
@@ -76,7 +77,7 @@ class WorldObjectsTab(ttk.Frame):
         ttk.Entry(tb, textvariable=self._search_var, width=18).pack(side="left")
         self._search_var.trace_add("write", lambda *_: self._apply_filter())
 
-        self._count_lbl = ttk.Label(tb, text="", foreground="#555",
+        self._count_lbl = ttk.Label(tb, text="", foreground=THEME["fg_faint"],
                                     font=("Arial", 8))
         self._count_lbl.pack(side="right", padx=8)
 
@@ -104,9 +105,9 @@ class WorldObjectsTab(ttk.Frame):
             self._tree.column(col, width=width, anchor=anchor,
                               stretch=(col == "name"))
 
-        self._tree.tag_configure("even", background="#1a1a1a")
-        self._tree.tag_configure("odd",  background="#141414")
-        self._tree.tag_configure("ench", foreground="#d4af37")
+        self._tree.tag_configure("even", background=THEME["list_row_even"])
+        self._tree.tag_configure("odd",  background=THEME["list_row_odd"])
+        self._tree.tag_configure("ench", foreground=THEME["tag_enchanted"])
 
     def _apply_filter(self) -> None:
         group  = self._group_var.get()
@@ -155,16 +156,16 @@ class WorldObjectsTab(ttk.Frame):
 
     def _build_summary(self, parent: ttk.Frame) -> None:
         self._summary = tk.Text(
-            parent, font=("Consolas", 9), background="#111",
-            foreground="#aaa", relief="flat", state="disabled", wrap="none")
+            parent, font=("Consolas", 9), background=THEME["bg_panel"],
+            foreground=THEME["fg_secondary"], relief="flat", state="disabled", wrap="none")
         sb = ttk.Scrollbar(parent, command=self._summary.yview)
         self._summary.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self._summary.pack(fill="both", expand=True)
-        self._summary.tag_configure("h", foreground="#ffffff",
+        self._summary.tag_configure("h", foreground=THEME["tag_summary_hdr"],
                                     font=("Consolas", 9, "bold"))
-        self._summary.tag_configure("v", foreground="#4ec9b0")
-        self._summary.tag_configure("s", foreground="#666666")
+        self._summary.tag_configure("v", foreground=THEME["tag_summary_val"])
+        self._summary.tag_configure("s", foreground=THEME["tag_summary_sep"])
 
     def _populate_summary(self, save_game) -> None:
         from collections import Counter
