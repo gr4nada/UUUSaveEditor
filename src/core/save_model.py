@@ -263,9 +263,10 @@ class GameObject:
     `commit()` é chamado — automaticamente disparado pelos setters desta classe.
     """
 
-    def __init__(self, node: dict) -> None:
+    def __init__(self, node: dict, _parent: "GameObject | None" = None) -> None:
         self._node = node
         self._parsed: dict | None = None
+        self._parent = _parent
 
     @property
     def raw(self) -> dict:
@@ -283,9 +284,17 @@ class GameObject:
         return self._parsed
 
     def commit(self) -> None:
-        """Re-serializa parsed_data para jsonData, se já foi carregado."""
+        """
+        Re-serializa parsed_data para jsonData, se já foi carregado.
+        Propaga para o GameObject pai (se houver), já que o nó deste
+        objeto pode viver dentro de parsed_data["contents"] do pai —
+        sem propagar, a mudança ficaria presa no parsed_data em cache
+        do pai e nunca chegaria ao jsonData persistido dele.
+        """
         if self._parsed is not None:
             self._node["jsonData"] = json.dumps(self._parsed)
+        if self._parent is not None:
+            self._parent.commit()
 
     # — Campos comuns —
     @property
@@ -319,12 +328,30 @@ class GameObject:
     @property
     def contents(self) -> list[GameObject]:
         items = self._node.get("contents") or self.parsed_data.get("contents") or []
-        return [GameObject(it) for it in items]
+        return [GameObject(it, _parent=self) for it in items]
 
     @property
     def contents_count(self) -> int:
         items = self._node.get("contents") or self.parsed_data.get("contents") or []
         return len(items)
+
+    def _contents_list(self) -> list | None:
+        """Retorna a lista `contents` real (node ou parsed_data), ou None se inexistente."""
+        if "contents" in self._node:
+            return self._node["contents"]
+        if "contents" in self.parsed_data:
+            return self.parsed_data["contents"]
+        return None
+
+    def delete_content(self, index: int) -> None:
+        """Remove o item de índice `index` da lista `contents` deste container."""
+        items = self._contents_list()
+        if items is None or not (0 <= index < len(items)):
+            logger.error("GameObject.delete_content: índice fora de alcance: %d", index)
+            return
+        removed = items.pop(index)
+        self.commit()
+        logger.info("Content #%d removed from %r: %r", index, self.object_name, removed.get("objectName"))
 
     # — Critters (campos lidos/escritos em parsed_data) —
     @property

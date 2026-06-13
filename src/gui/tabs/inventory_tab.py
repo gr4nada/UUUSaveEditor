@@ -164,8 +164,7 @@ class InventoryTab(ttk.Frame):
     def _build_main_inventory(self, parent: ttk.Frame) -> None:
         hint = ttk.Label(
             parent,
-            text="Double-click Qty to edit. Containers show item count but their "
-                 "contents aren't editable yet.",
+            text="Double-click Qty to edit. Expand containers (▶) to see and edit their contents.",
             foreground=THEME["fg_muted"], font=("Arial", 9, "italic"))
         hint.pack(anchor="w", pady=(0, 6))
 
@@ -173,7 +172,9 @@ class InventoryTab(ttk.Frame):
         tree_frame.pack(fill="both", expand=True)
 
         self._mi_tree = ttk.Treeview(
-            tree_frame, columns=self._MI_COLS, show="headings", selectmode="browse")
+            tree_frame, columns=self._MI_COLS, show="tree headings", selectmode="browse")
+        self._mi_tree.heading("#0", text="")
+        self._mi_tree.column("#0", width=24, stretch=False)
         for col in self._MI_COLS:
             label, width, anchor = self._MI_COL_CFG[col]
             self._mi_tree.heading(col, text=label)
@@ -199,11 +200,24 @@ class InventoryTab(ttk.Frame):
             return
 
         for idx, obj in enumerate(self._save_game.main_inventory):
-            contents = f"{obj.contents_count} items" if obj.contents_count else ""
-            self._mi_tree.insert(
-                "", "end", iid=str(idx),
-                values=(obj.object_name, obj.object_type_name,
-                        obj.quantity, obj.enchantment, contents))
+            self._insert_main_inventory_row("", str(idx), obj)
+
+    def _insert_main_inventory_row(self, parent_iid: str, iid: str, obj) -> None:
+        contents = f"{obj.contents_count} items" if obj.contents_count else ""
+        self._mi_tree.insert(
+            parent_iid, "end", iid=iid,
+            values=(obj.object_name, obj.object_type_name,
+                    obj.quantity, obj.enchantment, contents))
+        for child_idx, child in enumerate(obj.contents):
+            self._insert_main_inventory_row(iid, f"{iid}.{child_idx}", child)
+
+    def _resolve_object(self, iid: str):
+        """Resolve um iid composto ('0', '0.2', '0.2.1', ...) para o GameObject correspondente."""
+        path = [int(p) for p in iid.split(".")]
+        obj = self._save_game.main_inventory[path[0]]
+        for child_idx in path[1:]:
+            obj = obj.contents[child_idx]
+        return obj
 
     def _on_main_inventory_double_click(self, event) -> None:
         if not self._save_game:
@@ -238,7 +252,7 @@ class InventoryTab(ttk.Frame):
                 return
             if qty < 1:
                 qty = 1
-            self._save_game.main_inventory[int(row_iid)].quantity = qty
+            self._resolve_object(row_iid).quantity = qty
             self._mi_tree.set(row_iid, "qty", qty)
 
         def cancel(_event=None) -> None:
@@ -258,5 +272,14 @@ class InventoryTab(ttk.Frame):
         name = self._mi_tree.set(row_iid, "name")
         if not messagebox.askyesno("Delete Item", f"Remove '{name}' from the inventory?"):
             return
-        self._save_game.delete_main_inventory_item(int(row_iid))
+
+        path = [int(p) for p in row_iid.split(".")]
+        if len(path) == 1:
+            self._save_game.delete_main_inventory_item(path[0])
+        else:
+            parent = self._save_game.main_inventory[path[0]]
+            for child_idx in path[1:-1]:
+                parent = parent.contents[child_idx]
+            parent.delete_content(path[-1])
+
         self._refresh_main_inventory()
