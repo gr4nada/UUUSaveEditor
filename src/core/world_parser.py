@@ -130,6 +130,7 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
                     "object_index":   obj.get("objectIndex", d.get("objectIndex", 0)),
                     "tile_x":         d.get("initialTileX", 0),
                     "tile_y":         d.get("initialTileY", 0),
+                    "_node":          obj,
                 })
 
             else:
@@ -153,6 +154,7 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
                     "active":        d.get("activeInLevel", True),
                     "tile_x":         d.get("initialTileX", 0),
                     "tile_y":         d.get("initialTileY", 0),
+                    "_node":          obj,
                 })
 
     return critters, items

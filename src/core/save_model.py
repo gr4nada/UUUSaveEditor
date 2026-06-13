@@ -326,6 +326,43 @@ class GameObject:
         items = self._node.get("contents") or self.parsed_data.get("contents") or []
         return len(items)
 
+    # — Critters (campos lidos/escritos em parsed_data) —
+    @property
+    def hp(self) -> int:
+        return int(self.parsed_data.get("hp", 0))
+
+    @hp.setter
+    def hp(self, value: int) -> None:
+        """
+        Ajusta o HP da criatura. Clampa em [0, originalHp] quando originalHp
+        é conhecido, para evitar valores fora de faixa (overheal silencioso).
+        Setar para 0 também marca deathProcessed, igual ao comportamento do jogo.
+        """
+        value = int(value)
+        max_hp = self.parsed_data.get("originalHp", value)
+        value = max(0, min(value, max_hp) if max_hp else value)
+        self.parsed_data["hp"] = value
+        if value <= 0:
+            self.parsed_data["deathProcessed"] = True
+        self.commit()
+
+    @property
+    def is_dead(self) -> bool:
+        return bool(self.parsed_data.get("deathProcessed", False)) or self.hp <= 0
+
+    def revive(self, hp: int | None = None) -> None:
+        """Marca a criatura como viva, restaurando HP (default: originalHp ou 1)."""
+        restored = hp if hp is not None else self.parsed_data.get("originalHp", 1)
+        self.parsed_data["deathProcessed"] = False
+        self.parsed_data["hp"] = max(1, int(restored))
+        self.commit()
+
+    def kill(self) -> None:
+        """Marca a criatura como morta (hp=0, deathProcessed=True)."""
+        self.parsed_data["hp"] = 0
+        self.parsed_data["deathProcessed"] = True
+        self.commit()
+
 
 # ---------------------------------------------------------------------------
 # SaveGame — ponto de entrada único
