@@ -117,7 +117,8 @@ class CharacterTab(ttk.Frame):
     # API pública
     # ------------------------------------------------------------------
 
-    def load(self, player) -> None:
+    def load(self, save_game) -> None:
+        player = save_game.player
         self._suppress_traces = True
 
         # Identidade — ordem importa: gender antes de portrait
@@ -144,7 +145,7 @@ class CharacterTab(ttk.Frame):
         self._widgets["portrait"].config(state="readonly")
 
         # Dungeon level — read-only
-        self._dungeon_lbl.config(text=str(player._p.get("__dungeon_level__", "—")))
+        self._dungeon_lbl.config(text=str(save_game.dungeon_level or "—"))
 
         # Atributos + status + progressão
         for key, attr in _ATTR_KEY_MAP.items():

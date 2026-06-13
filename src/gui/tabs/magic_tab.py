@@ -21,9 +21,10 @@ class MagicTab(ttk.Frame):
         self._cast_spells_len: int = 0
         self._build()
 
-    def load(self, player) -> None:
+    def load(self, save_game) -> None:
+        player = save_game.player
         magic = player.magic_data
-        cast_spells = magic.get("castSpells", [])
+        cast_spells = player.cast_spells
         active_spells = magic.get("activeSpells", [])
 
         self._cast_spells_len = len(cast_spells)

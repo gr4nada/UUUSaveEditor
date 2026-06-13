@@ -33,10 +33,10 @@ class SaveHeaderFrame(ttk.Frame):
     # API pública
     # ------------------------------------------------------------------
 
-    def update_from_save(self, raw_save_data: dict, slot_number: int) -> None:
+    def update_from_save(self, save_game, slot_number: int) -> None:
         try:
-            display = raw_save_data.get("displayName") or raw_save_data.get("slotName", "")
-            saved   = raw_save_data.get("savedAtIso", "")
+            display = save_game.display_name or save_game.slot_name
+            saved   = save_game.saved_at
             if isinstance(saved, str) and "T" in saved:
                 saved = saved.split("T")[0] + "  " + saved.split("T")[1][:5]
 

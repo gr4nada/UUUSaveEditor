@@ -6,12 +6,7 @@ from tkinter import ttk, messagebox
 from PIL import Image, ImageTk
 import logging
 
-from src.core.inventory              import (
-    get_equipment_summary,
-    get_main_inventory_summary,
-    set_main_inventory_quantity,
-    delete_main_inventory_item,
-)
+from src.core.inventory               import get_equipment_summary
 from src.gui.widgets.tooltip     import Tooltip
 from src.gui.widgets.icon_loader     import IconLoader, ICON_MEDIUM
 from src.gui.constants               import THEME
@@ -37,7 +32,7 @@ class InventoryTab(ttk.Frame):
     'Inventory' Tab Component.
 
     Public API:
-        refresh(raw_save_data)      → Redraws asset slots with data mapped from the active save.
+        refresh(save_game)          → Redraws asset slots with data mapped from the active save.
         set_on_slot_clicked(fn)     → Injects a listener callback function fn(slot_index).
     """
 
@@ -48,16 +43,16 @@ class InventoryTab(ttk.Frame):
         self._selected_slot: int | None            = None
         self._loader = IconLoader.get_instance()
         self._on_slot_clicked = None
-        self._raw_save: dict | None = None
+        self._save_game = None
         self._build()
 
     def set_on_slot_clicked(self, fn) -> None:
         self._on_slot_clicked = fn
 
-    def refresh(self, raw_save_data: dict) -> None:
-        self._raw_save = raw_save_data
+    def refresh(self, save_game) -> None:
+        self._save_game = save_game
 
-        equip_summary = get_equipment_summary(raw_save_data)
+        equip_summary = get_equipment_summary(save_game.raw)
         for item in equip_summary:
             idx = item["slot_index"]
             lbl = self._slot_labels[idx]
@@ -200,18 +195,18 @@ class InventoryTab(ttk.Frame):
         if not hasattr(self, "_mi_tree"):
             return
         self._mi_tree.delete(*self._mi_tree.get_children())
-        if not self._raw_save:
+        if not self._save_game:
             return
 
-        for item in get_main_inventory_summary(self._raw_save):
-            contents = f"{item['contents_count']} items" if item["contents_count"] else ""
+        for idx, obj in enumerate(self._save_game.main_inventory):
+            contents = f"{obj.contents_count} items" if obj.contents_count else ""
             self._mi_tree.insert(
-                "", "end", iid=str(item["index"]),
-                values=(item["objectName"], item["objectTypeName"],
-                        item["quantity"], item["enchantment"], contents))
+                "", "end", iid=str(idx),
+                values=(obj.object_name, obj.object_type_name,
+                        obj.quantity, obj.enchantment, contents))
 
     def _on_main_inventory_double_click(self, event) -> None:
-        if not self._raw_save:
+        if not self._save_game:
             return
         region = self._mi_tree.identify_region(event.x, event.y)
         col = self._mi_tree.identify_column(event.x)
@@ -243,7 +238,7 @@ class InventoryTab(ttk.Frame):
                 return
             if qty < 1:
                 qty = 1
-            set_main_inventory_quantity(self._raw_save, int(row_iid), qty)
+            self._save_game.main_inventory[int(row_iid)].quantity = qty
             self._mi_tree.set(row_iid, "qty", qty)
 
         def cancel(_event=None) -> None:
@@ -254,7 +249,7 @@ class InventoryTab(ttk.Frame):
         entry.bind("<Escape>", cancel)
 
     def _on_main_inventory_delete(self) -> None:
-        if not self._raw_save:
+        if not self._save_game:
             return
         sel = self._mi_tree.selection()
         if not sel:
@@ -263,5 +258,5 @@ class InventoryTab(ttk.Frame):
         name = self._mi_tree.set(row_iid, "name")
         if not messagebox.askyesno("Delete Item", f"Remove '{name}' from the inventory?"):
             return
-        delete_main_inventory_item(self._raw_save, int(row_iid))
+        self._save_game.delete_main_inventory_item(int(row_iid))
         self._refresh_main_inventory()

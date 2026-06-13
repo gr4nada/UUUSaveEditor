@@ -14,9 +14,11 @@ o save_manager continua serializado o dict raiz normalmente.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
+import json
 import logging
 
-from src.core.enums import NOMES_SKILLS, EPlayerClass
+from src.core.database.skills import SKILL_NAMES as NOMES_SKILLS, EPlayerClass
+from src.core.database.quests import QUEST_FLAGS
 
 logger = logging.getLogger("core.save_model")
 
@@ -182,6 +184,31 @@ class PlayerModel:
     @property
     def quest_flags(self) -> list:  return self._p.get("questFlags", [])
 
+    @quest_flags.setter
+    def quest_flags(self, flags_by_name: dict[str, bool]) -> None:
+        """
+        Reescreve apenas os IDs declarados em QUEST_FLAGS dentro de questFlags,
+        a partir de um dict {flag_name: bool}. Expande a lista com False se
+        necessário; IDs fora do conhecimento do editor são preservados.
+        """
+        qlist = list(self._p.get("questFlags", []))
+        max_id = max(q["id"] for q in QUEST_FLAGS)
+        while len(qlist) <= max_id:
+            qlist.append(False)
+        for q in QUEST_FLAGS:
+            if q["flag"] in flags_by_name:
+                qlist[q["id"]] = bool(flags_by_name[q["flag"]])
+        self._p["questFlags"] = qlist
+
+    def get_quest_flags_by_name(self) -> dict[str, bool]:
+        """Retorna {flag_name: bool} para todos os QUEST_FLAGS conhecidos."""
+        qlist = self._p.get("questFlags", [])
+        result = {}
+        for q in QUEST_FLAGS:
+            idx = q["id"]
+            result[q["flag"]] = bool(qlist[idx]) if idx < len(qlist) else False
+        return result
+
     # — Estatísticas —
     @property
     def play_time(self) -> float:   return float(self._p.get("playTime", 0))
@@ -205,6 +232,99 @@ class PlayerModel:
     # — Magic —
     @property
     def magic_data(self) -> dict:   return self._p.get("magicData", {})
+
+    @property
+    def cast_spells(self) -> list[bool]:
+        return list(self._p.get("magicData", {}).get("castSpells", []))
+
+    @cast_spells.setter
+    def cast_spells(self, spells: list[bool]) -> None:
+        if not spells:
+            return
+        self._p.setdefault("magicData", {})["castSpells"] = list(spells)
+
+
+# ---------------------------------------------------------------------------
+# GameObject — wrapper sobre entradas com jsonData (itens, containers, etc.)
+# ---------------------------------------------------------------------------
+
+class GameObject:
+    """
+    Wrapper sobre um nó de objeto de jogo (item de inventário, world object, etc.)
+    que possui um campo `jsonData` com uma string JSON aninhada.
+
+    Uso:
+        obj.parsed_data         # dict — faz parse de jsonData uma vez e cacheia
+        obj.quantity            # lê de parsed_data, com fallback para o nó externo
+        obj.quantity = 5        # escreve em ambos os níveis e re-serializa jsonData
+        obj.commit()            # força a re-serialização de jsonData a partir de parsed_data
+
+    Mutações em `parsed_data` (dict) só são persistidas em `jsonData` quando
+    `commit()` é chamado — automaticamente disparado pelos setters desta classe.
+    """
+
+    def __init__(self, node: dict) -> None:
+        self._node = node
+        self._parsed: dict | None = None
+
+    @property
+    def raw(self) -> dict:
+        return self._node
+
+    @property
+    def parsed_data(self) -> dict:
+        if self._parsed is None:
+            raw = self._node.get("jsonData", "")
+            try:
+                self._parsed = json.loads(raw) if raw else {}
+            except Exception:
+                logger.warning("Falha ao decodificar jsonData de %r", self._node.get("objectName"))
+                self._parsed = {}
+        return self._parsed
+
+    def commit(self) -> None:
+        """Re-serializa parsed_data para jsonData, se já foi carregado."""
+        if self._parsed is not None:
+            self._node["jsonData"] = json.dumps(self._parsed)
+
+    # — Campos comuns —
+    @property
+    def object_name(self) -> str:
+        return self._node.get("objectName") or self.parsed_data.get("objectName", "") or ""
+
+    @property
+    def object_type_name(self) -> str:
+        return self._node.get("objectTypeName", "")
+
+    @property
+    def object_type(self) -> int:
+        return int(self._node.get("objectType", self.parsed_data.get("objectType", 0)))
+
+    @property
+    def quantity(self) -> int:
+        return int(self.parsed_data.get("quantity", self._node.get("quantity", 1)))
+
+    @quantity.setter
+    def quantity(self, value: int) -> None:
+        value = max(1, int(value))
+        if "quantity" in self._node:
+            self._node["quantity"] = value
+        self.parsed_data["quantity"] = value
+        self.commit()
+
+    @property
+    def enchantment(self) -> str:
+        return self.parsed_data.get("enchantmentName", "") or ""
+
+    @property
+    def contents(self) -> list[GameObject]:
+        items = self._node.get("contents") or self.parsed_data.get("contents") or []
+        return [GameObject(it) for it in items]
+
+    @property
+    def contents_count(self) -> int:
+        items = self._node.get("contents") or self.parsed_data.get("contents") or []
+        return len(items)
 
 
 # ---------------------------------------------------------------------------
@@ -247,4 +367,37 @@ class SaveGame:
     @property
     def world_objects(self) -> list:     return self._raw.get("worldObjects", [])
     @property
+    def world_objects_by_level(self) -> list: return self._raw.get("worldObjectsByLevel", [])
+    @property
     def map_data(self) -> dict:          return self._raw.get("mapData", {})
+
+    @property
+    def dungeon_level(self) -> int:
+        """Nível de masmorra atual do jogador (currentLevel)."""
+        return int(self._raw.get("currentLevel", 0))
+
+    # — Main Inventory —
+    @property
+    def main_inventory(self) -> list[GameObject]:
+        items = self._raw.get("inventoryData", {}).get("mainInventory", [])
+        return [GameObject(it) for it in items]
+
+    def delete_main_inventory_item(self, index: int) -> None:
+        items = self._raw.get("inventoryData", {}).get("mainInventory", [])
+        if not (0 <= index < len(items)):
+            logger.error("Main inventory index out of range: %d", index)
+            return
+        removed = items.pop(index)
+        logger.info("Main inventory item #%d removed: %r", index, removed.get("objectName"))
+
+    # — Equipped Items —
+    @property
+    def equipped_items(self) -> list[GameObject]:
+        items = self._raw.get("inventoryData", {}).get("equippedItems", [])
+        return [GameObject(it) for it in items]
+
+    # — World Objects (parsed) —
+    def parse_world(self) -> tuple[list[dict], list[dict]]:
+        """Retorna (critters, items) via world_parser.parse_world."""
+        from src.core.world_parser import parse_world as _parse_world
+        return _parse_world(self._raw)

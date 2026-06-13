@@ -199,18 +199,17 @@ class EditorApp:
     def _load_slot(self, slot: int) -> None:
         try:
             save_game = self._controller.load(slot)
-            raw_save  = self._controller.raw_save
 
-            self._tab_character.load(save_game.player)
-            self._tab_skills.load(save_game.player)
-            self._tab_magic.load(save_game.player)
-            self._tab_inventory.refresh(raw_save)
+            self._tab_character.load(save_game)
+            self._tab_skills.load(save_game)
+            self._tab_magic.load(save_game)
+            self._tab_inventory.refresh(save_game)
             self._tab_world.load(save_game)
 
-            critters, _items = self._controller.parse_world()
+            critters, _items = save_game.parse_world()
             self._tab_critters.load(critters)
 
-            self._header.update_from_save(raw_save, self._controller.selected_slot)
+            self._header.update_from_save(save_game, self._controller.selected_slot)
             self._refresh_preview()
 
             self._save_btn.config(state="normal")
@@ -234,10 +233,10 @@ class EditorApp:
                 flags       = self._tab_skills.get_flags(),
                 cast_spells = self._tab_magic.get_spells(),
             )
-            self._controller.save(payload)
+            save_game = self._controller.save(payload)
 
             self._refresh_preview()
-            self._header.update_from_save(self._controller.raw_save, self._controller.selected_slot)
+            self._header.update_from_save(save_game, self._controller.selected_slot)
             self._clear_dirty()
 
             messagebox.showinfo("Saved", "Changes written to save file.")
@@ -265,7 +264,7 @@ class EditorApp:
             slot_index,
             equip[slot_index]["slot_name"],
             lambda: (
-                self._tab_inventory.refresh(self._controller.raw_save),
+                self._tab_inventory.refresh(self._controller.save_game),
                 self._refresh_preview(),
             ),
         )

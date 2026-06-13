@@ -17,9 +17,9 @@ import tkinter as tk
 from tkinter import ttk
 
 from src.core.world_parser       import filter_critters
-from src.core.enums              import ECritterAttitude
+from src.core.database.critters  import ECritterAttitude, ATTITUDE_BY_NAME, ATTITUDE_COLORS
 from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
-from src.gui.constants           import THEME, ATTITUDE_COLORS
+from src.gui.constants           import THEME
 
 # ── Colunas da treeview principal ────────────────────────────────────
 _COLS = ("name", "type", "clvl", "hp", "state", "attitude", "goal", "loc")
@@ -234,8 +234,7 @@ class CrittersTab(ttk.Frame):
         visible = filter_critters(self._all, show_dead, level)
 
         if att_filter != "All":
-            att_map = {"Hostile": 0, "Upset": 1, "Mellow": 2, "Friendly": 3}
-            att_val = att_map.get(att_filter)
+            att_val = ATTITUDE_BY_NAME.get(att_filter)
             if att_val is not None:
                 visible = [c for c in visible if c["attitude"] == att_val]
 
@@ -272,7 +271,7 @@ class CrittersTab(ttk.Frame):
 
             # Labels ricos na treeview
             state_col   = c["state_label"]
-            attitude_col = c["attitude_rich"]
+            attitude_col = c.get("attitude_label", "")
             goal_col    = c["goal_label"]
 
             self._tree.insert("", "end", iid=str(i), values=(
@@ -348,7 +347,7 @@ class CrittersTab(ttk.Frame):
 
     def _update_detail(self, c: dict) -> None:
         att   = c["attitude"]
-        att_rich = c["attitude_rich"]
+        att_rich = c.get("attitude_label", "")
 
         # Tag de cor para a atitude
         att_tag = {0: "hostile", 1: "upset", 2: "mellow", 3: "friendly"}.get(att, "val")

@@ -6,12 +6,14 @@ Stateless, no Tkinter, 100% testable.
 from __future__ import annotations
 import json
 import logging
-from src.core.enums import (
-    whoami_name, attitude_label,
-    critter_state_label, critter_goal_label,
-    critter_attitude_label, movement_type_label,
-    ITEM_TYPES_SKIP, ITEM_TYPE_GROUPS,
+from src.core.database.critters import (
+    state_label  as critter_state_label,
+    goal_label   as critter_goal_label,
+    attitude_label as critter_attitude_label,
+    movement_label as movement_type_label,
 )
+from src.core.database.whoami   import npc_name as whoami_name
+from src.core.database.objects  import ITEM_TYPE_GROUPS, ITEM_TYPES_SKIP
 
 logger = logging.getLogger("core.world_parser")
 
@@ -111,7 +113,7 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
                     "hp":             hp,
                     "max_hp":         d.get("originalHp", hp),
                     "attitude":       att,
-                    "attitude_label": attitude_label(att),
+                    "attitude_label": critter_attitude_label(att),
                     "state":          d.get("state", 0),
                     "dead":           d.get("deathProcessed", False) or hp <= 0,
                     "player_ally":    d.get("playerAlly", False),
@@ -123,7 +125,6 @@ def parse_world(raw_save: dict) -> tuple[list[dict], list[dict]]:
                     "movement_type":      d.get("movementType", 0),
                     "movement_label":     movement_type_label(d.get("movementType", 0)),
                     "state_label":        critter_state_label(d.get("state", 0)),
-                    "attitude_rich":      critter_attitude_label(d.get("attitude", 0)),
                     "loot":           loot,
                     "loot_count":     len(loot),
                     "object_index":   obj.get("objectIndex", d.get("objectIndex", 0)),

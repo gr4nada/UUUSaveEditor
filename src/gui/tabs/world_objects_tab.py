@@ -9,8 +9,8 @@ from __future__ import annotations
 import tkinter as tk
 from tkinter import ttk
 
-from src.core.world_parser       import parse_world, filter_items
-from src.core.enums              import ITEM_TYPE_GROUPS
+from src.core.world_parser       import filter_items
+from src.core.database.objects   import ITEM_TYPE_GROUPS
 from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
 from src.gui.constants           import THEME
 
@@ -39,7 +39,7 @@ class WorldObjectsTab(ttk.Frame):
         self._build()
 
     def load(self, save_game) -> None:
-        self._all_critters, self._all_items = parse_world(save_game.raw)
+        self._all_critters, self._all_items = save_game.parse_world()
         self._apply_filter()
         self._populate_summary(save_game)
 

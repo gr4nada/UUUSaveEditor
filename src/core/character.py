@@ -1,6 +1,6 @@
 # src/core/character.py
 import logging
-from src.core.enums import NOMES_SKILLS, EPlayerClass
+from src.core.database.skills import SKILL_NAMES as NOMES_SKILLS, EPlayerClass
 
 logger = logging.getLogger("core.character")
 

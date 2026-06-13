@@ -6,6 +6,11 @@ Concentra a lógica que antes vivia em EditorApp (_on_load, _on_save, _on_cheat,
 _equipped_for_preview, _inject_dungeon_level), permitindo testá-la isoladamente
 da camada de UI.
 
+Sprint 2: o controller agora opera sobre `SaveGame` (src.core.save_model) em
+vez de indexar `raw_save` diretamente. `raw_save` continua exposto (é o que
+save_manager persiste), mas leituras/escritas de domínio passam pela API
+tipada — quest flags, magicData, equipped/main inventory, dungeon level.
+
 Uso típico (na GUI):
 
     controller = SaveController()
@@ -15,7 +20,6 @@ Uso típico (na GUI):
 """
 from __future__ import annotations
 
-import json
 import logging
 from dataclasses import dataclass, field
 
@@ -23,11 +27,6 @@ from src.core.character    import update_character, cheat_max_all_skills
 from src.core.inventory     import get_equipment_summary
 from src.core.save_manager  import load_save, save_game_data
 from src.core.save_model    import SaveGame
-from src.core.world_parser  import parse_world
-# QUEST_FLAGS é dado puro (sem dependências de Tkinter); importado daqui por
-# conveniência para não duplicar a tabela. Candidato a mover para src/core
-# se mais lógica de core passar a depender dela.
-from src.gui.constants       import QUEST_FLAGS
 
 logger = logging.getLogger("core.save_controller")
 
@@ -59,7 +58,7 @@ class SaveController:
 
     @property
     def is_loaded(self) -> bool:
-        return self.raw_save is not None
+        return self.save_game is not None
 
     # ------------------------------------------------------------------
     # Load
@@ -78,10 +77,10 @@ class SaveController:
         return self.save_game
 
     def parse_world(self) -> tuple[list, list]:
-        """Retorna (critters, items) do save atual via world_parser."""
-        if not self.raw_save:
+        """Retorna (critters, items) do save atual via SaveGame.parse_world()."""
+        if not self.save_game:
             return [], []
-        return parse_world(self.raw_save)
+        return self.save_game.parse_world()
 
     # ------------------------------------------------------------------
     # Save
@@ -89,42 +88,25 @@ class SaveController:
 
     def save(self, payload: SavePayload) -> SaveGame:
         """
-        Aplica o payload ao raw_save atual, persiste em disco e retorna o
-        novo SaveGame (já recarregado a partir do raw_save atualizado).
+        Aplica o payload ao save atual, persiste em disco e retorna o
+        SaveGame resultante (reconstruído a partir do raw_save atualizado).
 
         Levanta ValueError se algum campo numérico for inválido, ou
         qualquer outra exceção de I/O propagada de save_game_data.
         """
-        if not self.raw_save:
+        if not self.save_game or not self.raw_save:
             raise RuntimeError("Nenhum save carregado.")
 
-        self._apply_quest_flags(payload.flags)
-        update_character(self.raw_save, payload.attrs, payload.skills)
+        self.save_game.player.quest_flags = payload.flags
+        self.save_game.player.cast_spells = payload.cast_spells
 
-        if payload.cast_spells:
-            self.raw_save["playerData"].setdefault("magicData", {})["castSpells"] = payload.cast_spells
+        update_character(self.raw_save, payload.attrs, payload.skills)
 
         save_game_data(self.selected_slot, self.raw_save)
 
         self.save_game = SaveGame(self.raw_save)
         self._inject_dungeon_level()
         return self.save_game
-
-    def _apply_quest_flags(self, editor_flags: dict) -> None:
-        """
-        Reescreve apenas os IDs declarados em QUEST_FLAGS dentro de questFlags,
-        operando sobre uma cópia da lista original para não corromper flags
-        fora do escopo do editor (a lista pode ter mais entradas do que o
-        editor conhece).
-        """
-        original_qlist: list = self.raw_save["playerData"].get("questFlags", [])
-        qlist = list(original_qlist)            # cópia — nunca muta a lista original diretamente
-        max_id = max(q["id"] for q in QUEST_FLAGS)
-        while len(qlist) <= max_id:             # expande só se necessário
-            qlist.append(False)
-        for q in QUEST_FLAGS:
-            qlist[q["id"]] = editor_flags[q["flag"]]  # sobrescreve apenas os IDs conhecidos
-        self.raw_save["playerData"]["questFlags"] = qlist
 
     # ------------------------------------------------------------------
     # Cheats
@@ -146,20 +128,13 @@ class SaveController:
 
     def equipped_for_preview(self) -> dict:
         """Retorna {slot_index: {objectType, qualityClass}} do save atual."""
-        if not self.raw_save:
+        if not self.save_game:
             return {}
         result = {}
-        items = self.raw_save.get("inventoryData", {}).get("equippedItems", [])
-        for idx, item in enumerate(items):
-            jd = {}
-            if item.get("jsonData"):
-                try:
-                    jd = json.loads(item["jsonData"])
-                except Exception:
-                    pass
+        for idx, obj in enumerate(self.save_game.equipped_items):
             result[idx] = {
-                "objectType":   item.get("objectType", 0),
-                "qualityClass": jd.get("qualityClass", 0),
+                "objectType":   obj.object_type,
+                "qualityClass": obj.parsed_data.get("qualityClass", 0),
             }
         return result
 
@@ -168,7 +143,7 @@ class SaveController:
         Monta os kwargs esperados por CharacterPreviewWidget.update(...).
         Se portrait_id não for informado, usa o portrait atual do player.
         """
-        if not self.save_game or not self.raw_save:
+        if not self.save_game:
             return {}
         p = self.save_game.player
         return {
@@ -177,7 +152,7 @@ class SaveController:
             "name":           p.name,
             "class_name":     p.player_class_name,
             "level":          p.level,
-            "dungeon_level":  self.raw_save.get("currentLevel", 0),
+            "dungeon_level":  self.save_game.dungeon_level,
         }
 
     # ------------------------------------------------------------------
@@ -188,7 +163,11 @@ class SaveController:
         """
         Injeta o dungeon level atual no playerData temporariamente para que
         character_tab.load() o possa exibir sem alterar o model persistido.
+
+        TODO (Sprint 2 cont.): mover character_tab para receber `SaveGame`
+        em vez de `PlayerModel` e ler `save_game.dungeon_level` diretamente,
+        eliminando este hack de injeção.
         """
-        if not self.save_game or not self.raw_save:
+        if not self.save_game:
             return
-        self.save_game.player._p["__dungeon_level__"] = self.raw_save.get("currentLevel", "—")
+        self.save_game.player._p["__dungeon_level__"] = self.save_game.dungeon_level

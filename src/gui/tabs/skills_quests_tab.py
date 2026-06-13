@@ -2,8 +2,9 @@
 """Aba 'Skills & Quests' — skills + quest flags + global vars em sub-notebook."""
 import tkinter as tk
 from tkinter import ttk
-from src.core.enums import NOMES_SKILLS
-from src.gui.constants import QUEST_FLAGS, THEME
+from src.core.database.skills  import SKILL_NAMES as NOMES_SKILLS
+from src.core.database.quests  import QUEST_FLAGS
+from src.gui.constants         import THEME
 
 
 class SkillsQuestsTab(ttk.Frame):
@@ -28,7 +29,9 @@ class SkillsQuestsTab(ttk.Frame):
     # API pública
     # ------------------------------------------------------------------
 
-    def load(self, player) -> None:
+    def load(self, save_game) -> None:
+        player = save_game.player
+
         # Skills
         skills = player.get_all_skills()
         for name, val in skills.items():
@@ -36,13 +39,12 @@ class SkillsQuestsTab(ttk.Frame):
             self._skill_vars[name].set(str(val))
 
         # Quest flags
-        quests_list = player.quest_flags
+        flags_by_name = player.get_quest_flags_by_name()
         self._quest_listbox.delete(0, tk.END)
         self._quest_vars.clear()
         for q in QUEST_FLAGS:
-            flag_id   = q["id"]
             flag_name = q["flag"]
-            is_active = bool(quests_list[flag_id]) if flag_id < len(quests_list) else False
+            is_active = flags_by_name.get(flag_name, False)
             var = tk.BooleanVar(value=is_active)
             self._quest_vars[flag_name] = var
             self._insert_quest_row(tk.END, q["floor"], flag_name, is_active)

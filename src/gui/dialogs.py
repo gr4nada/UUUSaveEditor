@@ -2,8 +2,10 @@
 import logging
 import tkinter as tk
 from tkinter import ttk, messagebox
-from src.gui.constants import SPELL_DATABASE, THEME
-from src.core.inventory import WIKI_ITEM_DATABASE, update_equipped_item
+from src.gui.constants           import THEME
+from src.core.database.quests   import SPELL_DATABASE
+from src.core.database.objects  import EQUIPMENT_BY_SLOT as WIKI_ITEM_DATABASE
+from src.core.inventory         import update_equipped_item
 
 logger = logging.getLogger("gui.dialogs")
 
