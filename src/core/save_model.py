@@ -24,6 +24,82 @@ logger = logging.getLogger("core.save_model")
 
 
 # ---------------------------------------------------------------------------
+# ValidationError — levantada quando um valor viola os limites do jogo.
+#
+# Carrega metadados suficientes para a GUI exibir uma mensagem útil:
+#   field   → nome do campo (ex: "hp")
+#   value   → valor rejeitado
+#   lo / hi → limites permitidos (None = sem limite nesse lado)
+# ---------------------------------------------------------------------------
+
+class ValidationError(ValueError):
+    def __init__(self, field: str, value, lo=None, hi=None, msg: str = ""):
+        self.field = field
+        self.value = value
+        self.lo    = lo
+        self.hi    = hi
+        if not msg:
+            parts = []
+            if lo is not None: parts.append(f">= {lo}")
+            if hi is not None: parts.append(f"<= {hi}")
+            msg = f"'{field}' = {value!r} está fora do intervalo permitido ({' e '.join(parts) or 'desconhecido'})"
+        super().__init__(msg)
+
+
+# ---------------------------------------------------------------------------
+# Limites dos campos editáveis do PlayerModel.
+#
+# Cada entrada: (min_inclusive, max_inclusive); None = sem limite nesse lado.
+#
+# - Atributos de progressão/combate usam _validate (levanta ValidationError):
+#   um HP negativo ou level 0 é um erro de digitação, não uma escolha válida.
+# - Campos de status/sobrevivência usam _clamp (silencioso): valores extremos
+#   são válidos em edição — o jogo já os normaliza no próprio runtime.
+# ---------------------------------------------------------------------------
+
+FIELD_LIMITS: dict[str, tuple] = {
+    "hp":           (0,   9999),
+    "vitality":     (1,   9999),
+    "mana":         (0,   9999),
+    "max_mana":     (0,   9999),
+
+    "level":        (1,    255),
+    "xp":           (0, 999_999_999),
+    "skill_points": (0,  9999),
+
+    "strength":     (1,    255),
+    "intellect":    (1,    255),
+    "dexterity":    (1,    255),
+
+    "poison":       (0,    255),
+    "hunger":       (0,    255),
+    "fatigue":      (0,    255),
+    "drunkenness":  (0,    255),
+
+    "portrait":     (0,      9),
+    "player_class": (0,      7),
+
+    "skill":        (0,     30),
+}
+
+
+def _clamp(value: int, lo: int | None, hi: int | None) -> int:
+    """Aplica min/max sem levantar exceção — usado em campos de sobrevivência."""
+    if lo is not None: value = max(lo, value)
+    if hi is not None: value = min(hi, value)
+    return value
+
+
+def _validate(field: str, value: int, lo: int | None, hi: int | None) -> int:
+    """Valida e retorna o valor, ou levanta ValidationError."""
+    if lo is not None and value < lo:
+        raise ValidationError(field, value, lo=lo, hi=hi)
+    if hi is not None and value > hi:
+        raise ValidationError(field, value, lo=lo, hi=hi)
+    return value
+
+
+# ---------------------------------------------------------------------------
 # PlayerModel
 # ---------------------------------------------------------------------------
 
@@ -49,7 +125,9 @@ class PlayerModel:
     @property
     def player_class(self) -> int:    return self._p.get("playerClass", 0)
     @player_class.setter
-    def player_class(self, v: int):   self._p["playerClass"] = int(v)
+    def player_class(self, v: int):
+        lo, hi = FIELD_LIMITS["player_class"]
+        self._p["playerClass"] = _validate("player_class", int(v), lo, hi)
 
     @property
     def player_class_name(self) -> str:
@@ -71,79 +149,109 @@ class PlayerModel:
     @property
     def portrait(self) -> int:   return int(self._p.get("portrait", 0))
     @portrait.setter
-    def portrait(self, v: int):  self._p["portrait"] = int(v)
+    def portrait(self, v: int):
+        lo, hi = FIELD_LIMITS["portrait"]
+        self._p["portrait"] = _validate("portrait", int(v), lo, hi)
 
     # — Atributos —
     @property
     def level(self) -> int:      return int(self._p.get("charLevel", 0))
     @level.setter
-    def level(self, v: int):     self._p["charLevel"] = int(v)
+    def level(self, v: int):
+        lo, hi = FIELD_LIMITS["level"]
+        self._p["charLevel"] = _validate("level", int(v), lo, hi)
 
     @property
     def xp(self) -> int:         return int(self._p.get("xp", 0))
     @xp.setter
-    def xp(self, v: int):        self._p["xp"] = int(v)
+    def xp(self, v: int):
+        lo, hi = FIELD_LIMITS["xp"]
+        self._p["xp"] = _validate("xp", int(v), lo, hi)
 
     @property
     def skill_points(self) -> int:   return int(self._p.get("skillPoints", 0))
     @skill_points.setter
-    def skill_points(self, v: int):  self._p["skillPoints"] = int(v)
+    def skill_points(self, v: int):
+        lo, hi = FIELD_LIMITS["skill_points"]
+        self._p["skillPoints"] = _validate("skill_points", int(v), lo, hi)
 
     @property
     def hp(self) -> int:         return int(self._p.get("hp", 0))
     @hp.setter
-    def hp(self, v: int):        self._p["hp"] = int(v)
+    def hp(self, v: int):
+        lo, hi = FIELD_LIMITS["hp"]
+        self._p["hp"] = _validate("hp", int(v), lo, hi)
 
     @property
     def vitality(self) -> int:   return int(self._p.get("vitality", 0))
     @vitality.setter
-    def vitality(self, v: int):  self._p["vitality"] = int(v)
+    def vitality(self, v: int):
+        lo, hi = FIELD_LIMITS["vitality"]
+        self._p["vitality"] = _validate("vitality", int(v), lo, hi)
 
     @property
     def mana(self) -> int:       return int(self._p.get("mana", 0))
     @mana.setter
-    def mana(self, v: int):      self._p["mana"] = int(v)
+    def mana(self, v: int):
+        lo, hi = FIELD_LIMITS["mana"]
+        self._p["mana"] = _validate("mana", int(v), lo, hi)
 
     @property
     def max_mana(self) -> int:   return int(self._p.get("maxMana", 0))
     @max_mana.setter
-    def max_mana(self, v: int):  self._p["maxMana"] = int(v)
+    def max_mana(self, v: int):
+        lo, hi = FIELD_LIMITS["max_mana"]
+        self._p["maxMana"] = _validate("max_mana", int(v), lo, hi)
 
     @property
     def strength(self) -> int:   return int(self._p.get("strength", 0))
     @strength.setter
-    def strength(self, v: int):  self._p["strength"] = int(v)
+    def strength(self, v: int):
+        lo, hi = FIELD_LIMITS["strength"]
+        self._p["strength"] = _validate("strength", int(v), lo, hi)
 
     @property
     def intellect(self) -> int:  return int(self._p.get("intellect", 0))
     @intellect.setter
-    def intellect(self, v: int): self._p["intellect"] = int(v)
+    def intellect(self, v: int):
+        lo, hi = FIELD_LIMITS["intellect"]
+        self._p["intellect"] = _validate("intellect", int(v), lo, hi)
 
     @property
     def dexterity(self) -> int:  return int(self._p.get("dexterity", 0))
     @dexterity.setter
-    def dexterity(self, v: int): self._p["dexterity"] = int(v)
+    def dexterity(self, v: int):
+        lo, hi = FIELD_LIMITS["dexterity"]
+        self._p["dexterity"] = _validate("dexterity", int(v), lo, hi)
 
-    # — Status / Survival —
+    # — Status / Survival — (clamp silencioso, sem ValidationError)
     @property
     def poison(self) -> int:         return int(self._p.get("poison", 0))
     @poison.setter
-    def poison(self, v: int):        self._p["poison"] = int(v)
+    def poison(self, v: int):
+        lo, hi = FIELD_LIMITS["poison"]
+        self._p["poison"] = _clamp(int(v), lo, hi)
 
     @property
     def hunger(self) -> int:         return int(self._p.get("hunger", 0))
     @hunger.setter
-    def hunger(self, v: int):        self._p["hunger"] = int(v)
+    def hunger(self, v: int):
+        lo, hi = FIELD_LIMITS["hunger"]
+        self._p["hunger"] = _clamp(int(v), lo, hi)
 
     @property
     def fatigue(self) -> int:        return int(self._p.get("fatigue", 0))
     @fatigue.setter
-    def fatigue(self, v: int):       self._p["fatigue"] = int(v)
+    def fatigue(self, v: int):
+        lo, hi = FIELD_LIMITS["fatigue"]
+        self._p["fatigue"] = _clamp(int(v), lo, hi)
 
     @property
     def drunkenness(self) -> int:    return int(self._p.get("drunkenness", 0))
     @drunkenness.setter
-    def drunkenness(self, v: int):   self._p["drunkenness"] = int(v)
+    def drunkenness(self, v: int):
+        lo, hi = FIELD_LIMITS["drunkenness"]
+        self._p["drunkenness"] = _clamp(int(v), lo, hi)
 
     @property
     def dead(self) -> bool:          return bool(self._p.get("dead", False))
@@ -167,10 +275,12 @@ class PlayerModel:
         idx = NOMES_SKILLS.index(name) if name in NOMES_SKILLS else -1
         if idx < 0:
             return
+        lo, hi = FIELD_LIMITS["skill"]
+        value = _validate(f"skill[{name}]", int(value), lo, hi)
         skills = self._p.get("skill", [])
         while len(skills) <= idx:
             skills.append(0)
-        skills[idx] = int(value)
+        skills[idx] = value
         self._p["skill"] = skills
 
     def get_all_skills(self) -> dict[str, int]:

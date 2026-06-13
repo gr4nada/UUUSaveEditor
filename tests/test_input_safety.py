@@ -26,41 +26,137 @@ logger = logging.getLogger("tests.test_input_safety")
 # 1. NUMERIC BOUNDARY CONSTRAINTS
 # ===========================================================================
 
-def test_extreme_high_value_passes_through(sample_save):
+def test_extreme_high_value_raises_validation_error(sample_save):
     """
-    Ensures that extremely high out-of-bounds numeric allocations evaluate without exceptions.
-    The core editor does not enforce gameplay balance caps — that remains the game engine's task.
-    Risk if failed: Application interface (GUI) freezes when a user fills a large numeric sequence.
+    Sprint 8: FIELD_LIMITS agora é aplicado em update_character() — o mesmo
+    padrão já usado por GameObject.hp e pelos critters do world_parser.
+
+    Um hp de 99_999_999 está muito acima do limite de FIELD_LIMITS["hp"]
+    (0–9999) e deve ser rejeitado ANTES de qualquer escrita no save,
+    via ValidationError (subclasse de ValueError).
+
+    Comportamento anterior (permitia qualquer valor) foi intencionalmente
+    substituído — esse era exatamente o "buraco de integridade" que esta
+    sprint fecha.
     """
+    from src.core.save_model import ValidationError
     summary = get_character_summary(sample_save)
+    original_hp = sample_save["playerData"]["hp"]
     summary["attributes"]["hp"] = 99_999_999
+
+    with pytest.raises(ValidationError):
+        update_character(sample_save, summary["attributes"], summary["skills"])
+
+    # save permanece intocado — validação ocorre antes de qualquer escrita
+    assert sample_save["playerData"]["hp"] == original_hp
+
+
+def test_high_value_within_limits_is_accepted(sample_save):
+    """Um valor alto mas dentro de FIELD_LIMITS deve ser aceito normalmente."""
+    summary = get_character_summary(sample_save)
+    summary["attributes"]["hp"] = 9999       # limite superior exato
+    summary["attributes"]["vitality"] = 9999  # hp <= vitality
     update_character(sample_save, summary["attributes"], summary["skills"])
-    assert sample_save["playerData"]["hp"] == 99_999_999
+    assert sample_save["playerData"]["hp"] == 9999
 
 
-def test_negative_value_passes_through(sample_save):
+def test_negative_survival_value_is_clamped_to_zero(sample_save):
     """
-    Validates that negative variables persist cleanly into the file format map without errors.
-    Risk if failed: Component crash; while properties like 'hunger' naturally clamp at 0 during gameplay,
-    the data modifier must not prematurely enforce layout validation rules here.
+    Sprint 8: campos de sobrevivência (poison, hunger, fatigue, drunkenness)
+    agora são clampados silenciosamente em [0, 255] por update_character(),
+    via PlayerModel — mesmo padrão de _clamp já usado em GameObject.
+
+    hunger = -100 não é mais persistido como -100; é normalizado para 0
+    antes de chegar ao save, evitando o estado inválido na origem em vez
+    de depender do client do jogo para normalizá-lo depois.
     """
     summary = get_character_summary(sample_save)
     summary["attributes"]["hunger"] = -100
     update_character(sample_save, summary["attributes"], summary["skills"])
-    assert sample_save["playerData"]["hunger"] == -100
+    assert sample_save["playerData"]["hunger"] == 0
 
 
-def test_zero_values_are_valid(sample_save):
+def test_negative_attribute_value_raises_validation_error(sample_save):
     """
-    Confirms that assigning 0 resolves as a valid integer across all numeric fields.
-    Risk if failed: Stripped properties generate unhandled null reference exceptions inside the runtime.
+    Para campos de atributo (não-sobrevivência), um valor negativo é um
+    erro de digitação e deve ser rejeitado via ValidationError, deixando
+    o save intocado.
     """
+    from src.core.save_model import ValidationError
     summary = get_character_summary(sample_save)
-    for key in _NUMERIC_ATTRIBUTES:
+    original_hp = sample_save["playerData"]["hp"]
+    summary["attributes"]["hp"] = -1
+
+    with pytest.raises(ValidationError):
+        update_character(sample_save, summary["attributes"], summary["skills"])
+
+    assert sample_save["playerData"]["hp"] == original_hp
+
+
+def test_zero_values_are_valid_where_allowed(sample_save):
+    """
+    Confirms that assigning 0 resolves as a valid integer for fields whose
+    FIELD_LIMITS permitem 0 (hp, mana, xp, skillPoints, status fields, portrait).
+
+    Sprint 8: campos com mínimo > 0 (vitality, charLevel, strength, intellect,
+    dexterity — todos com min=1) NÃO aceitam 0; um personagem com vitality=0
+    ou level=0 é um estado inválido por definição. Esses ficam de fora deste
+    teste e são cobertos por test_zero_raises_for_min_one_fields.
+    """
+    from src.core.save_model import FIELD_LIMITS
+
+    zero_ok_keys = [
+        k for k in _NUMERIC_ATTRIBUTES
+        if FIELD_LIMITS[_RAW_TO_MODEL_ATTR_TEST[k]][0] in (0, None)
+    ]
+    summary = get_character_summary(sample_save)
+    for key in zero_ok_keys:
         summary["attributes"][key] = 0
+    # vitality/maxMana precisam ficar >= hp/mana para a validação cruzada
+    summary["attributes"]["vitality"] = max(summary["attributes"].get("hp", 0), 1)
+    summary["attributes"]["maxMana"]  = summary["attributes"].get("mana", 0)
+
     update_character(sample_save, summary["attributes"], summary["skills"])
-    for key in _NUMERIC_ATTRIBUTES:
+    for key in zero_ok_keys:
         assert sample_save["playerData"][key] == 0, f"Numeric property field '{key}' failed to initialize to zero"
+
+
+def test_zero_raises_for_min_one_fields(sample_save):
+    """
+    Sprint 8: vitality, charLevel, strength, intellect, dexterity têm
+    FIELD_LIMITS mínimo = 1. Um valor de 0 nesses campos é inválido
+    (personagem sem vitalidade, nível 0, atributo 0) e deve levantar
+    ValidationError, deixando o save intocado.
+    """
+    from src.core.save_model import ValidationError
+
+    for key in ["vitality", "charLevel", "strength", "intellect", "dexterity"]:
+        summary = get_character_summary(sample_save)
+        original = sample_save["playerData"][key]
+        summary["attributes"][key] = 0
+        with pytest.raises(ValidationError):
+            update_character(sample_save, summary["attributes"], summary["skills"])
+        assert sample_save["playerData"][key] == original, f"'{key}' foi modificado apesar do ValidationError"
+
+
+# Mapa local usado apenas pelos testes acima — espelha _RAW_TO_MODEL_ATTR de character.py
+_RAW_TO_MODEL_ATTR_TEST = {
+    "charLevel":   "level",
+    "xp":          "xp",
+    "strength":    "strength",
+    "intellect":   "intellect",
+    "dexterity":   "dexterity",
+    "hp":          "hp",
+    "vitality":    "vitality",
+    "mana":        "mana",
+    "maxMana":     "max_mana",
+    "skillPoints": "skill_points",
+    "poison":      "poison",
+    "hunger":      "hunger",
+    "fatigue":     "fatigue",
+    "drunkenness": "drunkenness",
+    "portrait":    "portrait",
+}
 
 
 def test_float_attribute_is_truncated_to_int(sample_save):
@@ -309,24 +405,29 @@ def test_invalid_player_class_is_rejected_or_preserved(sample_save):
     )
 
 
-def test_portrait_out_of_range_is_flagged(sample_save):
+def test_portrait_out_of_range_raises_validation_error(sample_save):
     """
-    Standard texture ranges evaluate between 0–31. Passing portrait=99 is accepted without validation.
-    This explicit tracking case documents current behavior patterns and provides an audible alert mechanism
-    should the game framework crash when parsing asset identifier pointers beyond intended index limits.
-
-    To bind absolute index boundary restrictions in future iterations, convert the validation rule to:
-        assert sample_save["playerData"]["portrait"] <= 31
+    Sprint 8: FIELD_LIMITS["portrait"] = (0, 9) — 10 portraits válidos (0-9).
+    portrait=99 agora é rejeitado via ValidationError antes de qualquer
+    escrita, em vez de ser persistido sem validação (comportamento anterior,
+    documentado como risco de crash ao carregar índice de asset inválido).
     """
+    from src.core.save_model import ValidationError, FIELD_LIMITS
     summary = get_character_summary(sample_save)
+    original_portrait = sample_save["playerData"]["portrait"]
     summary["attributes"]["portrait"] = 99
-    update_character(sample_save, summary["attributes"], summary["skills"])
-    
-    # Documenting baseline system behavior: processing executes without inline boundary clamping
-    assert sample_save["playerData"]["portrait"] == 99, (
-        "Core structural behavior shifted: value 99 was not preserved. "
-        "Adding strict asset range constraint filters (0-31) is recommended."
-    )
+
+    with pytest.raises(ValidationError):
+        update_character(sample_save, summary["attributes"], summary["skills"])
+
+    assert sample_save["playerData"]["portrait"] == original_portrait
+
+    # Limite superior exato (9) deve ser aceito
+    _, hi = FIELD_LIMITS["portrait"]
+    summary2 = get_character_summary(sample_save)
+    summary2["attributes"]["portrait"] = hi
+    update_character(sample_save, summary2["attributes"], summary2["skills"])
+    assert sample_save["playerData"]["portrait"] == hi
 
 
 def test_missing_player_data_key_raises(sample_save):

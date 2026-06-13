@@ -97,6 +97,29 @@ class SaveController:
         if not self.save_game or not self.raw_save:
             raise RuntimeError("Nenhum save carregado.")
 
+        # --- Validação cruzada antes de gravar qualquer campo ---
+        # hp não pode exceder vitality, mana não pode exceder maxMana.
+        # Valores ausentes em payload.attrs caem no valor atual do player,
+        # então editar só um dos dois lados da relação continua seguro.
+        from src.core.save_model import ValidationError
+        p = self.save_game.player
+
+        new_hp       = int(payload.attrs.get("hp",       p.hp))
+        new_vitality = int(payload.attrs.get("vitality", p.vitality))
+        new_mana     = int(payload.attrs.get("mana",     p.mana))
+        new_max_mana = int(payload.attrs.get("maxMana",  p.max_mana))
+
+        if new_hp > new_vitality:
+            raise ValidationError(
+                "hp", new_hp,
+                msg=f"'hp' ({new_hp}) não pode ser maior que 'vitality' ({new_vitality})"
+            )
+        if new_mana > new_max_mana:
+            raise ValidationError(
+                "mana", new_mana,
+                msg=f"'mana' ({new_mana}) não pode ser maior que 'maxMana' ({new_max_mana})"
+            )
+
         self.save_game.player.quest_flags = payload.flags
         self.save_game.player.cast_spells = payload.cast_spells
 

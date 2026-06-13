@@ -18,8 +18,10 @@ from tkinter import ttk
 
 from src.core.world_parser       import filter_critters
 from src.core.database.critters  import ECritterAttitude, ATTITUDE_BY_NAME, ATTITUDE_COLORS
+from src.core.save_model         import GameObject
 from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
 from src.gui.constants           import THEME
+from tkinter                     import messagebox
 
 # ── Colunas da treeview principal ────────────────────────────────────
 _COLS = ("name", "type", "clvl", "hp", "state", "attitude", "goal", "loc")
@@ -39,6 +41,10 @@ _PORTRAIT_W, _PORTRAIT_H = 80, 80
 # Filtros de atitude disponíveis
 _ATTITUDE_FILTERS = ["All", "Hostile", "Upset", "Mellow", "Friendly"]
 
+# int attitude value → display label (mirrors critter_attitude_label from world_parser)
+from src.core.database.critters import attitude_label as _att_lbl
+_ATTITUDE_LABELS: dict[int, str] = {a.value: _att_lbl(a.value) for a in ECritterAttitude}
+
 
 class CrittersTab(ttk.Frame):
     """
@@ -53,6 +59,7 @@ class CrittersTab(ttk.Frame):
         self._row_icons:  list       = []
         self._loot_icons: list       = []
         self._portrait_ref           = None
+        self._selected: dict | None  = None
         self._build()
 
     # ------------------------------------------------------------------
@@ -144,6 +151,7 @@ class CrittersTab(ttk.Frame):
         self._build_portrait_panel(bottom)
         self._build_detail_panel(bottom)
         self._build_loot_panel(bottom)
+        self._build_editor_panel(bottom)
 
     def _build_portrait_panel(self, parent: ttk.Frame) -> None:
         lf = ttk.LabelFrame(parent, text=" Portrait ", padding=4)
@@ -310,6 +318,8 @@ class CrittersTab(ttk.Frame):
         self._update_portrait(c)
         self._update_detail(c)
         self._update_loot(c)
+        self._selected = c
+        self._refresh_editor_panel()
 
     # ------------------------------------------------------------------
     # Portrait
@@ -437,3 +447,238 @@ class CrittersTab(ttk.Frame):
             rows.sort(key=lambda t: t[0].lower())
         for i, (_, k) in enumerate(rows):
             self._tree.move(k, "", i)
+
+    # ------------------------------------------------------------------
+    # Editor panel — HP / Status / Attitude / Position
+    # ------------------------------------------------------------------
+
+    def _build_editor_panel(self, parent: ttk.Frame) -> None:
+        lf = ttk.LabelFrame(parent, text=" Editor ", padding=6)
+        lf.pack(side="left", fill="y", padx=(4, 0))
+
+        r = 0
+
+        # ── HP ──────────────────────────────────────────────────
+        ttk.Label(lf, text="HP:", foreground=THEME["fg_muted"]).grid(
+            row=r, column=0, sticky="e", padx=(0, 4), pady=2)
+        self._hp_var = tk.StringVar()
+        self._hp_entry = ttk.Entry(lf, textvariable=self._hp_var, width=7, state="disabled")
+        self._hp_entry.grid(row=r, column=1, sticky="w", pady=2)
+        self._hp_entry.bind("<Return>", lambda _e: self._apply_hp())
+        self._apply_hp_btn = ttk.Button(lf, text="Set", command=self._apply_hp,
+                                        state="disabled", width=4)
+        self._apply_hp_btn.grid(row=r, column=2, padx=(2, 0), pady=2)
+        r += 1
+
+        # ── Status: Revive / Kill ───────────────────────────────
+        status_row = ttk.Frame(lf)
+        status_row.grid(row=r, column=0, columnspan=3, sticky="we", pady=(4, 2))
+        self._revive_btn = ttk.Button(status_row, text="Revive",
+                                      command=self._on_revive, state="disabled")
+        self._revive_btn.pack(side="left", padx=(0, 3))
+        self._kill_btn = ttk.Button(status_row, text="Kill",
+                                    command=self._on_kill, state="disabled")
+        self._kill_btn.pack(side="left")
+        r += 1
+
+        # ── Attitude ─────────────────────────────────────────────
+        ttk.Separator(lf, orient="horizontal").grid(
+            row=r, column=0, columnspan=3, sticky="we", pady=6)
+        r += 1
+
+        ttk.Label(lf, text="Attitude:", foreground=THEME["fg_muted"]).grid(
+            row=r, column=0, sticky="e", padx=(0, 4), pady=2)
+        self._attitude_edit_var = tk.StringVar()
+        attitude_names = [a.name.capitalize() for a in ECritterAttitude]
+        self._attitude_cb = ttk.Combobox(
+            lf, textvariable=self._attitude_edit_var,
+            values=attitude_names, state="disabled", width=10)
+        self._attitude_cb.grid(row=r, column=1, columnspan=2, sticky="we", pady=2)
+        r += 1
+
+        self._apply_attitude_btn = ttk.Button(
+            lf, text="Apply Attitude", command=self._apply_attitude, state="disabled")
+        self._apply_attitude_btn.grid(row=r, column=0, columnspan=3,
+                                      sticky="we", pady=(2, 4))
+        r += 1
+
+        # ── Position ─────────────────────────────────────────────
+        ttk.Separator(lf, orient="horizontal").grid(
+            row=r, column=0, columnspan=3, sticky="we", pady=6)
+        r += 1
+
+        ttk.Label(lf, text="Tile X:", foreground=THEME["fg_muted"]).grid(
+            row=r, column=0, sticky="e", padx=(0, 4), pady=2)
+        self._tile_x_var = tk.IntVar()
+        self._tile_x_spin = ttk.Spinbox(
+            lf, textvariable=self._tile_x_var,
+            from_=0, to=62, width=5, state="disabled")
+        self._tile_x_spin.grid(row=r, column=1, sticky="w", pady=2)
+        r += 1
+
+        ttk.Label(lf, text="Tile Y:", foreground=THEME["fg_muted"]).grid(
+            row=r, column=0, sticky="e", padx=(0, 4), pady=2)
+        self._tile_y_var = tk.IntVar()
+        self._tile_y_spin = ttk.Spinbox(
+            lf, textvariable=self._tile_y_var,
+            from_=0, to=62, width=5, state="disabled")
+        self._tile_y_spin.grid(row=r, column=1, sticky="w", pady=2)
+        r += 1
+
+        self._teleport_btn = ttk.Button(
+            lf, text="Teleport", command=self._apply_position, state="disabled")
+        self._teleport_btn.grid(row=r, column=0, columnspan=3,
+                                sticky="we", pady=(2, 0))
+        r += 1
+
+        # ── Hint ─────────────────────────────────────────────────
+        self._editor_hint = ttk.Label(
+            lf, text="Select a critter.", foreground=THEME["fg_muted"],
+            font=("Arial", 7, "italic"), wraplength=130, justify="center")
+        self._editor_hint.grid(row=r, column=0, columnspan=3, pady=(8, 0))
+
+    def _refresh_editor_panel(self) -> None:
+        c = self._selected
+        widgets = [
+            self._hp_entry, self._apply_hp_btn,
+            self._attitude_cb, self._apply_attitude_btn,
+            self._tile_x_spin, self._tile_y_spin, self._teleport_btn,
+        ]
+        if not c:
+            for w in widgets:
+                w.config(state="disabled")
+            self._revive_btn.config(state="disabled")
+            self._kill_btn.config(state="disabled")
+            self._editor_hint.config(text="Select a critter.")
+            return
+
+        for w in widgets:
+            w.config(state="normal")
+
+        # HP
+        self._hp_var.set(str(c["hp"]))
+
+        # Revive / Kill
+        if c["dead"]:
+            self._revive_btn.config(state="normal")
+            self._kill_btn.config(state="disabled")
+        else:
+            self._revive_btn.config(state="disabled")
+            self._kill_btn.config(state="normal")
+
+        # Attitude
+        att_name = ECritterAttitude(c["attitude"]).name.capitalize()
+        self._attitude_edit_var.set(att_name)
+
+        # Position
+        self._tile_x_var.set(c["tile_x"])
+        self._tile_y_var.set(c["tile_y"])
+
+        self._editor_hint.config(text=f"{c['name']} — {c['type_name']}")
+
+    # ── HP ──────────────────────────────────────────────────────────────
+
+    def _apply_hp(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        try:
+            value = int(self._hp_var.get())
+        except ValueError:
+            messagebox.showerror("Invalid HP", "HP must be a whole number.")
+            return
+        obj = GameObject(c["_node"])
+        obj.hp = value
+        c["hp"]   = obj.hp
+        c["dead"] = obj.is_dead
+        self._sync_after_edit()
+
+    def _on_revive(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        obj = GameObject(c["_node"])
+        obj.revive()
+        c["hp"]   = obj.hp
+        c["dead"] = obj.is_dead
+        self._sync_after_edit()
+
+    def _on_kill(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        obj = GameObject(c["_node"])
+        obj.kill()
+        c["hp"]   = obj.hp
+        c["dead"] = obj.is_dead
+        self._sync_after_edit()
+
+    # ── Attitude ────────────────────────────────────────────────────────
+
+    def _apply_attitude(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        att_name = self._attitude_edit_var.get().upper()
+        try:
+            att_val = ECritterAttitude[att_name].value
+        except KeyError:
+            messagebox.showerror("Invalid Attitude", f"Unknown attitude: {att_name!r}")
+            return
+        obj = GameObject(c["_node"])
+        obj.parsed_data["attitude"] = att_val
+        obj.commit()
+        c["attitude"]       = att_val
+        c["attitude_label"] = _ATTITUDE_LABELS[att_val]
+        self._sync_after_edit()
+
+    # ── Position ────────────────────────────────────────────────────────
+
+    def _apply_position(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        try:
+            tx = int(self._tile_x_var.get())
+            ty = int(self._tile_y_var.get())
+        except (ValueError, tk.TclError):
+            messagebox.showerror("Invalid Position", "Tile coordinates must be integers.")
+            return
+        tx = max(0, min(tx, 62))
+        ty = max(0, min(ty, 62))
+
+        obj = GameObject(c["_node"])
+        d = obj.parsed_data
+        d["initialTileX"] = tx
+        d["initialTileY"] = ty
+        d["xhome"]        = tx
+        d["yhome"]        = ty
+        obj.commit()
+
+        c["tile_x"] = tx
+        c["tile_y"] = ty
+        self._sync_after_edit()
+
+    # ── Shared ──────────────────────────────────────────────────────────
+
+    def _sync_after_edit(self) -> None:
+        """Re-renderiza a lista respeitando os filtros activos e re-seleciona o critter editado."""
+        self._apply_filter()
+        self._reselect_current()
+        self._refresh_editor_panel()
+        if self._selected:
+            self._update_detail(self._selected)
+
+    def _reselect_current(self) -> None:
+        c = self._selected
+        if not c:
+            return
+        visible = self._get_visible()
+        try:
+            idx = visible.index(c)
+        except ValueError:
+            return
+        iid = str(idx)
+        if self._tree.exists(iid):
+            self._tree.selection_set(iid)
+            self._tree.see(iid)
