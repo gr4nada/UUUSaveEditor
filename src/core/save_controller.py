@@ -38,6 +38,7 @@ class SavePayload:
     skills:      dict
     flags:       dict              # {flag_name: bool}, vindos de get_flags()
     cast_spells: list[bool] = field(default_factory=list)  # vazio = não altera magicData
+    story:       dict | None = None  # Sprint 10 — campos da aba Story (ver StoryTab.get_story_data())
 
 
 class SaveController:
@@ -123,6 +124,13 @@ class SaveController:
         self.save_game.player.quest_flags = payload.flags
         self.save_game.player.cast_spells = payload.cast_spells
 
+        # --- Sprint 10: campos da aba Story ---
+        # Aplicados via setters tipados de PlayerModel/SaveGame (cada um já
+        # clampa/valida no padrão estabelecido). Todos os campos são
+        # opcionais — apenas os presentes em payload.story são tocados.
+        if payload.story:
+            self._apply_story(payload.story)
+
         update_character(self.raw_save, payload.attrs, payload.skills)
 
         save_game_data(self.selected_slot, self.raw_save)
@@ -130,6 +138,56 @@ class SaveController:
         self.save_game = SaveGame(self.raw_save)
         self._inject_dungeon_level()
         return self.save_game
+
+    def _apply_story(self, story: dict) -> None:
+        """
+        Aplica os campos da aba Story a save_game.player / save_game.
+
+        Mapa de chaves esperadas em `story` (todas opcionais):
+            easy, position, current_level, cup_found, cup_dream_index,
+            sapling_planted, sapling_planted_level, moonstone_dropped,
+            moonstone_dropped_level, garamon_at_rest, entered_green_moongate,
+            said_fanlo, talismans_collected, talismans_destroyed,
+            dreams_remaining, global_vars
+        """
+        p  = self.save_game.player
+        sg = self.save_game
+
+        _BOOL_FIELDS = (
+            "easy", "cup_found", "sapling_planted", "moonstone_dropped",
+            "garamon_at_rest", "entered_green_moongate", "said_fanlo",
+        )
+        _INT_FIELDS = (
+            "cup_dream_index", "sapling_planted_level", "moonstone_dropped_level",
+            "talismans_collected", "talismans_destroyed",
+        )
+
+        for field_name in _BOOL_FIELDS:
+            if field_name in story:
+                setattr(p, field_name, bool(story[field_name]))
+
+        for field_name in _INT_FIELDS:
+            if field_name in story:
+                setattr(p, field_name, int(story[field_name]))
+
+        if "position" in story:
+            p.position = story["position"]
+
+        if "sapling_planted_position" in story:
+            p.sapling_planted_position = story["sapling_planted_position"]
+
+        if "moonstone_dropped_position" in story:
+            p.moonstone_dropped_position = story["moonstone_dropped_position"]
+
+        if "current_level" in story:
+            sg.current_level = int(story["current_level"])
+
+        if "dreams_remaining" in story:
+            p.dreams_remaining = story["dreams_remaining"]
+
+        if "global_vars" in story:
+            # global_vars vem como {index: value} — chaves podem ser str (JSON) ou int
+            p.global_vars = {int(k): v for k, v in story["global_vars"].items()}
 
     # ------------------------------------------------------------------
     # Cheats

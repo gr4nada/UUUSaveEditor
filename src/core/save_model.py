@@ -80,6 +80,14 @@ FIELD_LIMITS: dict[str, tuple] = {
     "player_class": (0,      7),
 
     "skill":        (0,     30),
+
+    # — Story / Game State (Sprint 10) —
+    "dungeon_level":   (0,      9),   # 10 níveis de masmorra (0-9)
+    "cup_dream_index": (0,      5),   # índice no array dreamsRemaining[6]
+    "dream_count":     (0,     99),   # contador de sonhos restantes por talismã
+    "talismans":       (0,     64),   # talismansCollected / talismansDestroyed
+    "global_var":      (-32768, 32767),  # Int16 — formato bglobals.dat
+    "world_position":  (-2000.0, 2000.0),  # coordenadas x/y/z do mundo
 }
 
 
@@ -259,11 +267,192 @@ class PlayerModel:
     @property
     def stamina(self) -> int:        return int(self._p.get("stamina", 0))
 
+    # — Story / Game State —
+    @property
+    def easy(self) -> bool:          return bool(self._p.get("easy", False))
+    @easy.setter
+    def easy(self, v: bool):         self._p["easy"] = bool(v)
+
+    @property
+    def position(self) -> dict:
+        """Posição do jogador no mundo: {'x': float, 'y': float, 'z': float}."""
+        pos = self._p.get("position", {})
+        return {"x": float(pos.get("x", 0.0)),
+                "y": float(pos.get("y", 0.0)),
+                "z": float(pos.get("z", 0.0))}
+
+    @position.setter
+    def position(self, value: dict) -> None:
+        """
+        Define a posição do jogador (teleporte). Aceita um dict com
+        qualquer subconjunto de {'x','y','z'} — campos ausentes preservam
+        o valor atual. Coordenadas fora de [-2000, 2000] são clampadas
+        (mapas do jogo não excedem esse range).
+        """
+        current = self.position
+        merged = {**current, **{k: v for k, v in value.items() if k in ("x", "y", "z")}}
+        clamped = {k: _clamp(float(merged[k]), -2000.0, 2000.0) for k in ("x", "y", "z")}
+        self._p["position"] = clamped
+
+    # — Plot Flags —
+    @property
+    def cup_found(self) -> bool:         return bool(self._p.get("cupFound", False))
+    @cup_found.setter
+    def cup_found(self, v: bool):        self._p["cupFound"] = bool(v)
+
+    @property
+    def cup_dream_index(self) -> int:    return int(self._p.get("cupDreamIndex", 0))
+    @cup_dream_index.setter
+    def cup_dream_index(self, v: int):
+        lo, hi = FIELD_LIMITS["cup_dream_index"]
+        self._p["cupDreamIndex"] = _clamp(int(v), lo, hi)
+
+    @property
+    def sapling_planted(self) -> bool:   return bool(self._p.get("saplingPlanted", False))
+    @sapling_planted.setter
+    def sapling_planted(self, v: bool):  self._p["saplingPlanted"] = bool(v)
+
+    @property
+    def sapling_planted_level(self) -> int: return int(self._p.get("saplingPlantedLevel", 0))
+    @sapling_planted_level.setter
+    def sapling_planted_level(self, v: int):
+        lo, hi = FIELD_LIMITS["dungeon_level"]
+        self._p["saplingPlantedLevel"] = _clamp(int(v), lo, hi)
+
+    @property
+    def sapling_planted_position(self) -> dict:
+        """Posição {'x','y','z'} onde o sapling foi plantado."""
+        pos = self._p.get("saplingPlantedPosition", {})
+        return {"x": float(pos.get("x", 0.0)),
+                "y": float(pos.get("y", 0.0)),
+                "z": float(pos.get("z", 0.0))}
+
+    @sapling_planted_position.setter
+    def sapling_planted_position(self, value: dict) -> None:
+        """Mesma semântica de `position`: merge parcial + clamp em world_position."""
+        current = self.sapling_planted_position
+        merged = {**current, **{k: v for k, v in value.items() if k in ("x", "y", "z")}}
+        lo, hi = FIELD_LIMITS["world_position"]
+        clamped = {k: _clamp(float(merged[k]), lo, hi) for k in ("x", "y", "z")}
+        self._p["saplingPlantedPosition"] = clamped
+
+    @property
+    def moonstone_dropped(self) -> bool:    return bool(self._p.get("moonstoneDropped", False))
+    @moonstone_dropped.setter
+    def moonstone_dropped(self, v: bool):   self._p["moonstoneDropped"] = bool(v)
+
+    @property
+    def moonstone_dropped_level(self) -> int: return int(self._p.get("moonstoneDroppedLevel", 0))
+    @moonstone_dropped_level.setter
+    def moonstone_dropped_level(self, v: int):
+        lo, hi = FIELD_LIMITS["dungeon_level"]
+        self._p["moonstoneDroppedLevel"] = _clamp(int(v), lo, hi)
+
+    @property
+    def moonstone_dropped_position(self) -> dict:
+        """Posição {'x','y','z'} onde a moonstone foi derrubada."""
+        pos = self._p.get("moonstoneDroppedPosition", {})
+        return {"x": float(pos.get("x", 0.0)),
+                "y": float(pos.get("y", 0.0)),
+                "z": float(pos.get("z", 0.0))}
+
+    @moonstone_dropped_position.setter
+    def moonstone_dropped_position(self, value: dict) -> None:
+        current = self.moonstone_dropped_position
+        merged = {**current, **{k: v for k, v in value.items() if k in ("x", "y", "z")}}
+        lo, hi = FIELD_LIMITS["world_position"]
+        clamped = {k: _clamp(float(merged[k]), lo, hi) for k in ("x", "y", "z")}
+        self._p["moonstoneDroppedPosition"] = clamped
+
+    @property
+    def garamon_at_rest(self) -> bool:      return bool(self._p.get("garamonAtRest", False))
+    @garamon_at_rest.setter
+    def garamon_at_rest(self, v: bool):     self._p["garamonAtRest"] = bool(v)
+
+    @property
+    def entered_green_moongate(self) -> bool:   return bool(self._p.get("enteredGreenMoongate", False))
+    @entered_green_moongate.setter
+    def entered_green_moongate(self, v: bool):  self._p["enteredGreenMoongate"] = bool(v)
+
+    @property
+    def map_tiles_revealed(self) -> int:
+        """
+        Contagem de tiles do mapa revelados (fog of war). Apenas leitura
+        — é derivado da matriz de tiles em mapData (mappedRLE), não um
+        contador independente que possa ser editado de forma segura sem
+        recalcular a matriz correspondente.
+        """
+        return int(self._p.get("mapTilesRevealed", 0))
+
+    @property
+    def said_fanlo(self) -> bool:    return bool(self._p.get("saidFanlo", False))
+    @said_fanlo.setter
+    def said_fanlo(self, v: bool):   self._p["saidFanlo"] = bool(v)
+
+    @property
+    def talismans_collected(self) -> int:    return int(self._p.get("talismansCollected", 0))
+    @talismans_collected.setter
+    def talismans_collected(self, v: int):
+        lo, hi = FIELD_LIMITS["talismans"]
+        self._p["talismansCollected"] = _validate("talismans_collected", int(v), lo, hi)
+
+    @property
+    def talismans_destroyed(self) -> int:    return int(self._p.get("talismansDestroyed", 0))
+    @talismans_destroyed.setter
+    def talismans_destroyed(self, v: int):
+        lo, hi = FIELD_LIMITS["talismans"]
+        self._p["talismansDestroyed"] = _validate("talismans_destroyed", int(v), lo, hi)
+
     # — Progressão —
     @property
-    def dreams_remaining(self) -> list:  return self._p.get("dreamsRemaining", [])
+    def dreams_remaining(self) -> list:  return list(self._p.get("dreamsRemaining", []))
+
+    @dreams_remaining.setter
+    def dreams_remaining(self, values: list[int]) -> None:
+        """
+        Define dreamsRemaining (lista de 6 contadores de sonhos restantes
+        por talismã). Cada valor é clampado em FIELD_LIMITS["dream_count"].
+        Apenas os índices presentes em `values` são sobrescritos; o
+        tamanho da lista original é preservado.
+        """
+        lo, hi = FIELD_LIMITS["dream_count"]
+        current = list(self._p.get("dreamsRemaining", []))
+        for i, v in enumerate(values):
+            if i >= len(current):
+                current.append(0)
+            current[i] = _clamp(int(v), lo, hi)
+        self._p["dreamsRemaining"] = current
+
     @property
-    def global_vars(self) -> list:       return self._p.get("globalVars", [])
+    def time_of_last_dream(self) -> float:   return float(self._p.get("timeOfLastDream", 0))
+
+    @property
+    def global_vars(self) -> list:       return list(self._p.get("globalVars", []))
+
+    @global_vars.setter
+    def global_vars(self, values: dict[int, int]) -> None:
+        """
+        Atualiza globalVars[64] (private global variables — ver formato
+        bglobals.dat) a partir de um dict {índice: valor}.
+
+        Cada slot é um Int16 do formato original; valores são clampados em
+        FIELD_LIMITS["global_var"] = (-32768, 32767). Índices fora do range
+        atual de globalVars são ignorados (a lista nunca é redimensionada —
+        seu tamanho é definido por babglobs.dat e não deve mudar).
+        """
+        lo, hi = FIELD_LIMITS["global_var"]
+        gv = list(self._p.get("globalVars", []))
+        for idx, val in values.items():
+            idx = int(idx)
+            if 0 <= idx < len(gv):
+                gv[idx] = _clamp(int(val), lo, hi)
+            else:
+                logger.warning("global_vars: índice %d fora do range (0-%d), ignorado", idx, len(gv) - 1)
+        self._p["globalVars"] = gv
+
+    def get_global_var(self, index: int) -> int:
+        gv = self._p.get("globalVars", [])
+        return int(gv[index]) if 0 <= index < len(gv) else 0
 
     # — Skills —
     def get_skill(self, name: str) -> int:
@@ -534,6 +723,20 @@ class SaveGame:
     def saved_at(self) -> str:       return str(self._raw.get("savedAtIso", ""))
     @property
     def current_level(self) -> int:  return int(self._raw.get("currentLevel", 0))
+    @current_level.setter
+    def current_level(self, v: int) -> None:
+        """
+        Define o nível de masmorra atual do jogador (teleporte entre níveis).
+        Clampado em FIELD_LIMITS["dungeon_level"] = (0, 9) — os 10 níveis
+        existentes em worldObjectsByLevel.
+        """
+        lo, hi = FIELD_LIMITS["dungeon_level"]
+        # Limita também ao número real de níveis presentes no save, caso
+        # worldObjectsByLevel tenha menos de 10 entradas.
+        max_level = min(hi, len(self._raw.get("worldObjectsByLevel", [])) - 1)
+        if max_level < lo:
+            max_level = hi
+        self._raw["currentLevel"] = _clamp(int(v), lo, max_level)
 
     # — Blocos não-editáveis por enquanto —
     @property
@@ -544,6 +747,66 @@ class SaveGame:
     def world_objects_by_level(self) -> list: return self._raw.get("worldObjectsByLevel", [])
     @property
     def map_data(self) -> dict:          return self._raw.get("mapData", {})
+
+    # — Map Annotations (Sprint 10) —
+    #
+    # mapData = {"pages": [{"mappedRLE": "...", "notes": [...]}]}
+    #
+    # Cada "note" é um dict de forma livre (tipicamente {"x", "y", "text"}).
+    # A API abaixo trata `notes` apenas como uma lista de dicts — não impõe
+    # um schema rígido, preservando quaisquer chaves desconhecidas em notas
+    # existentes (mappedRLE nunca é tocado).
+
+    def get_map_notes(self, page: int = 0) -> list[dict]:
+        """Retorna a lista de anotações da página `page` (cópia rasa)."""
+        pages = self._raw.get("mapData", {}).get("pages", [])
+        if not (0 <= page < len(pages)):
+            return []
+        return list(pages[page].get("notes", []))
+
+    def add_map_note(self, page: int, note: dict) -> bool:
+        """
+        Adiciona uma anotação à página `page`. `note` é armazenado como veio
+        (ex: {"x": 10, "y": 20, "text": "Tesouro aqui"}). Retorna False se a
+        página não existir.
+        """
+        pages = self._raw.get("mapData", {}).get("pages", [])
+        if not (0 <= page < len(pages)):
+            logger.warning("add_map_note: página %d fora do range (%d páginas)", page, len(pages))
+            return False
+        pages[page].setdefault("notes", []).append(dict(note))
+        return True
+
+    def update_map_note(self, page: int, index: int, note: dict) -> bool:
+        """
+        Substitui a anotação `index` da página `page` por `note`.
+        Retorna False se página ou índice forem inválidos.
+        """
+        pages = self._raw.get("mapData", {}).get("pages", [])
+        if not (0 <= page < len(pages)):
+            return False
+        notes = pages[page].setdefault("notes", [])
+        if not (0 <= index < len(notes)):
+            logger.warning("update_map_note: índice %d fora do range (%d notas)", index, len(notes))
+            return False
+        notes[index] = dict(note)
+        return True
+
+    def delete_map_note(self, page: int, index: int) -> bool:
+        """Remove a anotação `index` da página `page`. Retorna False se inválido."""
+        pages = self._raw.get("mapData", {}).get("pages", [])
+        if not (0 <= page < len(pages)):
+            return False
+        notes = pages[page].setdefault("notes", [])
+        if not (0 <= index < len(notes)):
+            logger.warning("delete_map_note: índice %d fora do range (%d notas)", index, len(notes))
+            return False
+        notes.pop(index)
+        return True
+
+    @property
+    def map_page_count(self) -> int:
+        return len(self._raw.get("mapData", {}).get("pages", []))
 
     @property
     def dungeon_level(self) -> int:
