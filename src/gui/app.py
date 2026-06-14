@@ -231,12 +231,20 @@ class EditorApp:
         if not self._controller.is_loaded:
             return
         try:
+            story = self._tab_story.get_story_data()
+            # Sprint 11 — campos movidos para CharacterTab (easy, position,
+            # dreams_remaining) e SkillsQuestsTab (global_vars). Mesclados
+            # aqui para manter SavePayload.story como única estrutura
+            # consumida por _apply_story().
+            story.update(self._tab_character.get_story_overrides())
+            story["global_vars"] = self._tab_skills.get_global_vars()
+
             payload = SavePayload(
                 attrs       = self._tab_character.get_values(),
                 skills      = self._tab_skills.get_skills(),
                 flags       = self._tab_skills.get_flags(),
                 cast_spells = self._tab_magic.get_spells(),
-                story       = self._tab_story.get_story_data(),
+                story       = story,
             )
             save_game = self._controller.save(payload)
 

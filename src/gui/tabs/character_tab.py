@@ -17,6 +17,7 @@ Regras de portrait/gender:
 import tkinter as tk
 from tkinter import ttk
 from src.gui.constants import UNDERWORLD_CLASSES, THEME
+from src.core.save_model import FIELD_LIMITS
 
 
 def _fmt_time(sec: float) -> str:
@@ -101,6 +102,16 @@ class CharacterTab(ttk.Frame):
         self._on_portrait_change = None
         self._on_gender_change   = None
         self._suppress_traces    = False   # evita loops durante load
+
+        # Dungeon & State (Sprint 11)
+        self._easy_var = tk.BooleanVar(value=False)
+        self._pos_x_var = tk.StringVar(value="0.000")
+        self._pos_y_var = tk.StringVar(value="0.000")
+        self._pos_z_var = tk.StringVar(value="0.000")
+
+        # Dreams Remaining — 6 spinboxes (Sprint 11)
+        self._dream_vars: list[tk.StringVar] = [tk.StringVar(value="0") for _ in range(6)]
+
         self._build()
 
     # ------------------------------------------------------------------
@@ -147,6 +158,18 @@ class CharacterTab(ttk.Frame):
         # Dungeon level — read-only
         self._dungeon_lbl.config(text=str(save_game.dungeon_level or "—"))
 
+        # Dungeon & State (Sprint 11)
+        self._easy_var.set(player.easy)
+        pos = player.position
+        self._pos_x_var.set(f"{pos['x']:.3f}")
+        self._pos_y_var.set(f"{pos['y']:.3f}")
+        self._pos_z_var.set(f"{pos['z']:.3f}")
+
+        # Dreams Remaining (Sprint 11)
+        dreams = player.dreams_remaining
+        for i, var in enumerate(self._dream_vars):
+            var.set(str(dreams[i] if i < len(dreams) else 0))
+
         # Atributos + status + progressão
         for key, attr in _ATTR_KEY_MAP.items():
             self._widgets[key].config(state="normal")
@@ -175,6 +198,35 @@ class CharacterTab(ttk.Frame):
 
         return attrs
 
+    def get_story_overrides(self) -> dict:
+        """
+        Campos de 'Dungeon & State' (Sprint 11) que são mesclados em
+        payload.story antes do save — easy mode e posição do jogador.
+        Valores não-numéricos em X/Y/Z caem em 0.0 (mesma tolerância usada
+        em story_tab).
+        """
+        def _f(var: tk.StringVar) -> float:
+            try:
+                return float(var.get())
+            except (ValueError, tk.TclError):
+                return 0.0
+
+        def _i(var: tk.StringVar) -> int:
+            try:
+                return int(var.get())
+            except (ValueError, tk.TclError):
+                return 0
+
+        return {
+            "easy": self._easy_var.get(),
+            "position": {
+                "x": _f(self._pos_x_var),
+                "y": _f(self._pos_y_var),
+                "z": _f(self._pos_z_var),
+            },
+            "dreams_remaining": [_i(v) for v in self._dream_vars],
+        }
+
     # ------------------------------------------------------------------
     # Construção — 3 colunas
     # ------------------------------------------------------------------
@@ -189,6 +241,7 @@ class CharacterTab(ttk.Frame):
 
         self._build_identity(col1)
         self._build_attributes(col1)
+        self._build_dungeon_state(col1)
         self._build_status(col2)
         self._build_progression(col2)
         self._build_statistics(col3)
@@ -278,6 +331,36 @@ class CharacterTab(ttk.Frame):
         for i, (key, label) in enumerate(_ATTRIBUTES):
             self._int_row(lf, key, label, i)
 
+    def _build_dungeon_state(self, parent) -> None:
+        """
+        Sprint 11 — Easy Mode + posição do jogador (teleporte).
+
+        'Teleport' aqui significa: editar X/Y/Z e salvar — não há
+        movimento em tempo real, apenas a coordenada gravada no save é
+        alterada. O nível da masmorra (currentLevel) permanece na aba
+        Story, pois afeta qual conjunto de world objects é carregado.
+        """
+        lf = ttk.LabelFrame(parent, text=" Dungeon & State ", padding=10)
+        lf.pack(fill="x", pady=(0, 8))
+
+        ttk.Checkbutton(lf, text="Easy Mode", variable=self._easy_var).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+
+        ttk.Label(lf, text="Position (Teleport):", anchor="w",
+                  font=("Arial", 8, "bold")).grid(
+            row=1, column=0, columnspan=2, sticky="w", pady=(4, 4))
+
+        pos_row = ttk.Frame(lf)
+        pos_row.grid(row=2, column=0, columnspan=2, sticky="w")
+        for label, var in [("X:", self._pos_x_var), ("Y:", self._pos_y_var), ("Z:", self._pos_z_var)]:
+            ttk.Label(pos_row, text=label, anchor="e", width=2).pack(side="left", padx=(0, 2))
+            ttk.Entry(pos_row, textvariable=var, width=9).pack(side="left", padx=(0, 8))
+
+        ttk.Label(lf,
+                  text="Editar X/Y/Z e salvar move o personagem para essas\ncoordenadas na próxima vez que o save for carregado.",
+                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic"),
+                  justify="left").grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
     # --- Coluna 2 ---
 
     def _build_status(self, parent) -> None:
@@ -291,6 +374,31 @@ class CharacterTab(ttk.Frame):
         lf.pack(fill="x", pady=(0, 8))
         for i, (key, label) in enumerate(_PROGRESSION):
             self._int_row(lf, key, label, i)
+
+        # Dreams Remaining — 6 spinboxes lado a lado (Sprint 11)
+        next_row = len(_PROGRESSION)
+        ttk.Separator(lf, orient="horizontal").grid(
+            row=next_row, column=0, columnspan=2, sticky="ew", pady=8)
+        next_row += 1
+
+        ttk.Label(lf, text="Dreams Remaining:", anchor="w",
+                  font=("Arial", 8, "bold")).grid(
+            row=next_row, column=0, columnspan=2, sticky="w", pady=(0, 4))
+        next_row += 1
+
+        dream_row = ttk.Frame(lf)
+        dream_row.grid(row=next_row, column=0, columnspan=2, sticky="w")
+        _dlo, _dhi = FIELD_LIMITS["dream_count"]
+        for var in self._dream_vars:
+            ttk.Spinbox(dream_row, from_=_dlo, to=_dhi, textvariable=var,
+                        width=4).pack(side="left", padx=(0, 4))
+        next_row += 1
+
+        ttk.Label(lf,
+                  text="Um valor por talismã/sonho restante (índice = cupDreamIndex aponta para um destes).",
+                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic"),
+                  wraplength=220, justify="left").grid(
+            row=next_row, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
     # --- Coluna 3 ---
 

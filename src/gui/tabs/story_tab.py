@@ -24,10 +24,6 @@ from tkinter import ttk
 from src.gui.constants import THEME
 
 
-# Quantas colunas na grade de Global Vars (64 valores)
-_GV_COLS = 8
-_GV_ROWS = 8  # 64 / 8
-
 
 class StoryTab(ttk.Frame):
     """
@@ -67,9 +63,11 @@ class StoryTab(ttk.Frame):
         self._talismans_coll_var    = tk.StringVar(value="0")
         self._talismans_dest_var    = tk.StringVar(value="0")
 
-        # Vars — Dreams & Globals
-        self._dream_vars: list[tk.StringVar] = []
-        self._gv_vars: dict[int, tk.StringVar] = {}
+        # Dreams Remaining e Global Vars (Sprint 11) — movidos para
+        # CharacterTab (dreams, dentro de Progression) e SkillsQuestsTab
+        # (global vars, grade de 64 slots), via get_story_overrides() /
+        # get_global_vars() para evitar dois widgets escrevendo o mesmo
+        # campo no save.
 
         # Map Notes (Sprint 10) — opera direto sobre save_game.raw (mapData),
         # fora do payload de SavePayload.story, pois notes são uma lista
@@ -120,17 +118,8 @@ class StoryTab(ttk.Frame):
         self._talismans_coll_var.set(str(p.talismans_collected))
         self._talismans_dest_var.set(str(p.talismans_destroyed))
 
-        # Dreams
-        dreams = p.dreams_remaining
-        for i, var in enumerate(self._dream_vars):
-            var.set(str(dreams[i]) if i < len(dreams) else "0")
-
-        # Global Vars
-        gv = p.global_vars
-        for idx, var in self._gv_vars.items():
-            var.set(str(gv[idx]) if idx < len(gv) else "0")
-        self._gv_count_lbl.config(
-            text=f"{len(gv)} slots  /  {sum(1 for v in gv if v)} non-zero")
+        # Dreams Remaining e Global Vars agora são geridos por
+        # CharacterTab e SkillsQuestsTab respectivamente (Sprint 11).
 
         # Map Notes
         self._refresh_notes_list()
@@ -172,8 +161,10 @@ class StoryTab(ttk.Frame):
             "talismans_collected":     self._safe_int(self._talismans_coll_var.get()),
             "talismans_destroyed":     self._safe_int(self._talismans_dest_var.get()),
 
-            "dreams_remaining": [self._safe_int(v.get()) for v in self._dream_vars],
-            "global_vars": {idx: self._safe_int(var.get()) for idx, var in self._gv_vars.items()},
+            # "dreams_remaining" e "global_vars" agora vêm de
+            # CharacterTab.get_story_overrides() e
+            # SkillsQuestsTab.get_global_vars() (Sprint 11); o app.py
+            # mescla esses dicts no payload final.
         }
 
     @staticmethod
@@ -205,10 +196,6 @@ class StoryTab(ttk.Frame):
         plot_frame = ttk.Frame(sub, padding=10)
         sub.add(plot_frame, text="  Plot Flags  ")
         self._build_plot_flags(plot_frame)
-
-        dreams_frame = ttk.Frame(sub, padding=10)
-        sub.add(dreams_frame, text="  Dreams & Globals  ")
-        self._build_dreams_and_globals(dreams_frame)
 
         notes_frame = ttk.Frame(sub, padding=10)
         sub.add(notes_frame, text="  Map Notes  ")
@@ -288,45 +275,6 @@ class StoryTab(ttk.Frame):
         ttk.Spinbox(lf3, from_=0, to=64, textvariable=self._talismans_coll_var, width=6).grid(row=0, column=1, sticky="w", pady=3)
         ttk.Label(lf3, text="Destroyed (0-64):", anchor="e", width=16).grid(row=1, column=0, sticky="e", padx=(0, 8), pady=3)
         ttk.Spinbox(lf3, from_=0, to=64, textvariable=self._talismans_dest_var, width=6).grid(row=1, column=1, sticky="w", pady=3)
-
-    # --- Dreams & Globals ---
-
-    def _build_dreams_and_globals(self, parent) -> None:
-        lf = ttk.LabelFrame(parent, text=" Dreams Remaining (per Talisman) ", padding=10)
-        lf.pack(fill="x", pady=(0, 10))
-
-        for i in range(6):
-            var = tk.StringVar(value="0")
-            self._dream_vars.append(var)
-            ttk.Label(lf, text=f"#{i}:", anchor="e", width=4).grid(row=0, column=i * 2, sticky="e", padx=(8 if i else 0, 2), pady=3)
-            ttk.Spinbox(lf, from_=0, to=99, textvariable=var, width=5).grid(row=0, column=i * 2 + 1, sticky="w", pady=3)
-
-        lf2 = ttk.LabelFrame(parent, text=" Global Variables (private, per-conversation) ", padding=10)
-        lf2.pack(fill="both", expand=True)
-
-        ttk.Label(lf2,
-                  text="64 slots Int16 (-32768 a 32767). Sem nomes mapeados — "
-                       "edição avançada, valores incorretos podem afetar diálogos e estado de NPCs.",
-                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic"),
-                  wraplength=520, justify="left").pack(anchor="w", pady=(0, 8))
-
-        grid_frame = ttk.Frame(lf2)
-        grid_frame.pack(fill="x")
-
-        for i in range(_GV_ROWS * _GV_COLS):
-            row, col = divmod(i, _GV_COLS)
-            var = tk.StringVar(value="0")
-            self._gv_vars[i] = var
-            cell = ttk.Frame(grid_frame)
-            cell.grid(row=row, column=col, padx=2, pady=2)
-            ttk.Label(cell, text=str(i), foreground=THEME["fg_faint"],
-                      font=("Consolas", 7), anchor="center", width=3).pack()
-            ttk.Entry(cell, textvariable=var, width=6, font=("Consolas", 8),
-                      justify="center").pack()
-
-        self._gv_count_lbl = ttk.Label(lf2, text="—", foreground=THEME["fg_secondary"],
-                                       font=("Arial", 8))
-        self._gv_count_lbl.pack(anchor="w", pady=(8, 0))
 
     # --- Map Notes ---
 
