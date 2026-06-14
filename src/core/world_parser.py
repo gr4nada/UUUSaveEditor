@@ -181,3 +181,129 @@ def filter_critters(critters: list[dict],
         # Match against map dungeon index 'level' to fulfill unit test constraints
         result = [c for c in result if c["level"] == level]
     return result
+
+
+# ---------------------------------------------------------------------------
+# Write API — edicao de world objects e critters no raw_save
+#
+# Todas as funcoes localizam o no pelo (level, object_index), atualizam
+# jsonData via _patch_jsondata(), e retornam True em sucesso.
+# ---------------------------------------------------------------------------
+
+def _find_node(raw_save: dict, level: int, object_index: int) -> dict | None:
+    """
+    Localiza o no raw de um world object pelo nivel (1-based) e objectIndex.
+    Busca em objects e inactiveObjects do nivel correto.
+    Retorna None se nao encontrado.
+    """
+    wobl = raw_save.get("worldObjectsByLevel", [])
+    lvl_idx = level - 1
+    if not (0 <= lvl_idx < len(wobl)):
+        logger.warning("_find_node: level %d fora do range (%d niveis)", level, len(wobl))
+        return None
+    lvl_data = wobl[lvl_idx]
+    for bucket in ("objects", "inactiveObjects"):
+        for obj in lvl_data.get(bucket, []):
+            idx = obj.get("objectIndex", _jd(obj).get("objectIndex", -1))
+            if idx == object_index:
+                return obj
+    logger.warning("_find_node: objectIndex %d nao encontrado no level %d", object_index, level)
+    return None
+
+
+def _patch_jsondata(node: dict, patches: dict) -> bool:
+    """
+    Aplica `patches` ao jsonData de `node` e re-serializa.
+    Retorna True em sucesso.
+    """
+    raw = node.get("jsonData", "")
+    try:
+        d = json.loads(raw) if raw else {}
+    except Exception:
+        logger.error("_patch_jsondata: jsonData invalido no no %r", node.get("objectIndex"))
+        return False
+    d.update(patches)
+    node["jsonData"] = json.dumps(d)
+    return True
+
+
+# --- Itens ---
+
+def set_item_quantity(raw_save: dict, level: int, object_index: int,
+                      quantity: int) -> bool:
+    """Define a quantidade de um item no mundo."""
+    quantity = max(1, int(quantity))
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, {"quantity": quantity})
+
+
+def set_item_enchantment(raw_save: dict, level: int, object_index: int,
+                         enchantment: str) -> bool:
+    """Define o nome de encantamento de um item (string vazia = sem encanto)."""
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    is_enchanted = bool(enchantment.strip())
+    return _patch_jsondata(node, {
+        "enchantmentName": enchantment.strip(),
+        "isEnchanted":     is_enchanted,
+    })
+
+
+def set_item_active(raw_save: dict, level: int, object_index: int,
+                    active: bool) -> bool:
+    """Ativa ou desativa um item no mundo (activeInLevel)."""
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, {"activeInLevel": bool(active)})
+
+
+# --- Critters ---
+
+def set_critter_hp(raw_save: dict, level: int, object_index: int,
+                   hp: int, original_hp: int | None = None) -> bool:
+    """
+    Define o HP atual de um critter.
+    Se original_hp for fornecido, atualiza tambem originalHp (HP maximo).
+    hp = 0 marca o critter como morto (deathProcessed = True).
+    """
+    hp = max(0, int(hp))
+    patches: dict = {"hp": hp, "deathProcessed": hp <= 0}
+    if original_hp is not None:
+        patches["originalHp"] = max(1, int(original_hp))
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, patches)
+
+
+def set_critter_attitude(raw_save: dict, level: int, object_index: int,
+                         attitude: int) -> bool:
+    """Define a atitude de um critter (0=Hostile,1=Upset,2=Mellow,3=Friendly)."""
+    attitude = max(0, min(3, int(attitude)))
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, {"attitude": attitude})
+
+
+def set_critter_ally(raw_save: dict, level: int, object_index: int,
+                     ally: bool) -> bool:
+    """Define se o critter e aliado do jogador."""
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, {"playerAlly": bool(ally)})
+
+
+def set_critter_goal(raw_save: dict, level: int, object_index: int,
+                     goal: int) -> bool:
+    """Define o objetivo (ECritterGoal) de um critter (0-14)."""
+    goal = max(0, min(14, int(goal)))
+    node = _find_node(raw_save, level, object_index)
+    if node is None:
+        return False
+    return _patch_jsondata(node, {"goal": goal})
