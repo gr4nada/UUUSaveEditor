@@ -152,6 +152,7 @@ class CrittersTab(ttk.Frame):
         self._build_detail_panel(bottom)
         self._build_loot_panel(bottom)
         self._build_editor_panel(bottom)
+        self._build_inspector_panel()
 
     def _build_portrait_panel(self, parent: ttk.Frame) -> None:
         lf = ttk.LabelFrame(parent, text=" Portrait ", padding=4)
@@ -320,6 +321,7 @@ class CrittersTab(ttk.Frame):
         self._update_loot(c)
         self._selected = c
         self._refresh_editor_panel()
+        self._refresh_inspector(c)
 
     # ------------------------------------------------------------------
     # Portrait
@@ -668,6 +670,7 @@ class CrittersTab(ttk.Frame):
         self._refresh_editor_panel()
         if self._selected:
             self._update_detail(self._selected)
+            self._refresh_inspector(self._selected)
 
     def _reselect_current(self) -> None:
         c = self._selected
@@ -682,3 +685,202 @@ class CrittersTab(ttk.Frame):
         if self._tree.exists(iid):
             self._tree.selection_set(iid)
             self._tree.see(iid)
+
+    # ------------------------------------------------------------------
+    # NPC Inspector — charGlobals editor + identity panel
+    # ------------------------------------------------------------------
+
+    def _build_inspector_panel(self) -> None:
+        """
+        Painel expansível abaixo do row de portrait/detalhe/loot/editor.
+        Visível apenas quando um NPC nomeado (whoami > 0) está selecionado.
+
+        Layout:
+          ┌─ NPC Inspector ────────────────────────────────────────────┐
+          │ [Identity: name · whoami · home tile · conv · level]       │
+          │                                                             │
+          │ charGlobals — grade editável Int16 (índice / valor)         │
+          │ [00]=53 [01]=78 [02]=1  [03]=23  ...                       │
+          └─────────────────────────────────────────────────────────────┘
+        """
+        self._inspector_frame = ttk.LabelFrame(
+            self, text=" NPC Inspector ", padding=6)
+        # não faz .pack() ainda — só aparece quando há NPC selecionado
+
+        # — Linha de identidade —
+        id_row = ttk.Frame(self._inspector_frame)
+        id_row.pack(fill="x", pady=(0, 6))
+
+        self._insp_name_lbl = ttk.Label(
+            id_row, text="—", font=("Arial", 10, "bold"),
+            foreground=THEME["fg_primary"])
+        self._insp_name_lbl.pack(side="left", padx=(0, 16))
+
+        for attr in ("_insp_whoami_lbl", "_insp_home_lbl",
+                     "_insp_conv_lbl",   "_insp_level_lbl"):
+            lbl = ttk.Label(id_row, text="", foreground=THEME["fg_muted"],
+                            font=("Arial", 9))
+            lbl.pack(side="left", padx=(0, 14))
+            setattr(self, attr, lbl)
+
+        # — charGlobals grid —
+        ttk.Separator(self._inspector_frame, orient="horizontal").pack(
+            fill="x", pady=(0, 6))
+
+        grid_hint = ttk.Label(
+            self._inspector_frame,
+            text="charGlobals — private conversation memory (bglobals.dat per-NPC slots). "
+                 "Edit with caution: wrong values can break NPC dialogue.",
+            foreground=THEME["fg_muted"], font=("Arial", 8, "italic"),
+            wraplength=780, justify="left")
+        grid_hint.pack(anchor="w", pady=(0, 4))
+
+        canvas_frame = ttk.Frame(self._inspector_frame)
+        canvas_frame.pack(fill="both", expand=True)
+
+        self._insp_canvas = tk.Canvas(
+            canvas_frame, height=100, highlightthickness=0,
+            background=THEME.get("bg_deep", "#0d0d0d"))
+        insp_sb = ttk.Scrollbar(canvas_frame, orient="vertical",
+                                 command=self._insp_canvas.yview)
+        self._insp_canvas.configure(yscrollcommand=insp_sb.set)
+        insp_sb.pack(side="right", fill="y")
+        self._insp_canvas.pack(side="left", fill="both", expand=True)
+
+        self._insp_grid = ttk.Frame(self._insp_canvas)
+        self._insp_grid_id = self._insp_canvas.create_window(
+            (0, 0), window=self._insp_grid, anchor="nw")
+
+        self._insp_grid.bind("<Configure>", lambda e: self._insp_canvas.configure(
+            scrollregion=self._insp_canvas.bbox("all")))
+        self._insp_canvas.bind("<Configure>", lambda e: self._insp_canvas.itemconfig(
+            self._insp_grid_id, width=e.width))
+
+        # Storage for spinbox vars — rebuilt on each selection
+        self._insp_cg_vars:  list[tk.StringVar] = []
+        self._insp_cg_n:     int                = 0   # length of current charGlobals
+        self._insp_whoami:   int                = 0
+
+        # Apply button
+        btn_row = ttk.Frame(self._inspector_frame)
+        btn_row.pack(fill="x", pady=(6, 0))
+        ttk.Button(btn_row, text="Apply charGlobals",
+                   command=self._apply_char_globals).pack(side="left")
+        ttk.Button(btn_row, text="Reset to Saved",
+                   command=lambda: self._refresh_inspector(self._selected) if self._selected else None
+                   ).pack(side="left", padx=(6, 0))
+
+    def _refresh_inspector(self, c: dict | None) -> None:
+        """
+        Atualiza o painel Inspector para o critter `c`.
+        Esconde o painel se `c` é None ou whoami == 0 (critter genérico).
+        """
+        import json as _json
+
+        if not c or c.get("whoami_id", 0) == 0:
+            self._inspector_frame.pack_forget()
+            return
+
+        # Show panel
+        self._inspector_frame.pack(fill="x", padx=4, pady=(4, 0))
+
+        whoami = c["whoami_id"]
+        self._insp_whoami = whoami
+
+        # Identity labels
+        self._insp_name_lbl.config(text=c["name"])
+        self._insp_whoami_lbl.config(text=f"whoami #{whoami}")
+        self._insp_home_lbl.config(
+            text=f"Home: ({c['tile_x']}, {c['tile_y']})")
+        self._insp_level_lbl.config(
+            text=f"Dungeon L{c['level']}")
+        self._insp_conv_lbl.config(
+            text=f"conv slot: {whoami}")
+
+        # Parse charGlobals from raw node
+        try:
+            parsed = _json.loads(c["_node"]["jsonData"])
+            cg = parsed.get("charGlobals", [])
+        except Exception:
+            cg = []
+
+        self._insp_cg_n = len(cg)
+
+        # Rebuild grid
+        for w in self._insp_grid.winfo_children():
+            w.destroy()
+        self._insp_cg_vars.clear()
+
+        if not cg:
+            ttk.Label(self._insp_grid, text="(no charGlobals)",
+                      foreground=THEME["fg_muted"],
+                      font=("Consolas", 9)).grid(row=0, column=0, padx=8)
+            return
+
+        # Lay out in columns of 16 rows each
+        ROWS = 16
+        for i, val in enumerate(cg):
+            row    = i % ROWS
+            col_g  = (i // ROWS) * 3      # label col, spinbox col, spacer col
+
+            is_nonzero = (val != 0)
+            fg = THEME["fg_primary"] if is_nonzero else THEME["fg_muted"]
+
+            ttk.Label(
+                self._insp_grid,
+                text=f"[{i:02d}]",
+                font=("Consolas", 9),
+                foreground=fg,
+                anchor="e", width=4,
+            ).grid(row=row, column=col_g, sticky="e", padx=(8 if col_g == 0 else 4, 2), pady=1)
+
+            var = tk.StringVar(value=str(val))
+            self._insp_cg_vars.append(var)
+
+            ttk.Spinbox(
+                self._insp_grid,
+                textvariable=var,
+                from_=-32768, to=32767,
+                width=7,
+                font=("Consolas", 9),
+            ).grid(row=row, column=col_g + 1, sticky="w", pady=1)
+
+            # Spacer between column groups
+            if (i // ROWS) < (len(cg) - 1) // ROWS:
+                ttk.Separator(
+                    self._insp_grid, orient="vertical"
+                ).grid(row=row, column=col_g + 2, sticky="ns", padx=6)
+
+    def _apply_char_globals(self) -> None:
+        """Writes edited charGlobals values back to the critter's _node jsonData."""
+        import json as _json
+
+        c = self._selected
+        if not c or not self._insp_cg_vars:
+            return
+
+        try:
+            parsed = _json.loads(c["_node"]["jsonData"])
+        except Exception:
+            return
+
+        cg = parsed.get("charGlobals", [])
+        if len(cg) != self._insp_cg_n:
+            return  # node changed under us — bail
+
+        changed = 0
+        for i, var in enumerate(self._insp_cg_vars):
+            try:
+                new_val = int(var.get())
+                new_val = max(-32768, min(32767, new_val))   # Int16 clamp
+            except (ValueError, tk.TclError):
+                new_val = cg[i]   # keep original on bad input
+            if cg[i] != new_val:
+                cg[i] = new_val
+                changed += 1
+
+        if changed:
+            parsed["charGlobals"] = cg
+            c["_node"]["jsonData"] = _json.dumps(parsed)
+            # Refresh index labels colour (non-zero = bright)
+            self._refresh_inspector(c)
