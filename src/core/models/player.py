@@ -384,28 +384,82 @@ class PlayerModel:
     def quest_flags(self) -> list:  return self._p.get("questFlags", [])
 
     @quest_flags.setter
-    def quest_flags(self, flags_by_name: dict[str, bool]) -> None:
+    def quest_flags(self, flags_by_name: dict[str, int | bool]) -> None:
         """
         Reescreve apenas os IDs declarados em QUEST_FLAGS dentro de questFlags,
-        a partir de um dict {flag_name: bool}. Expande a lista com False se
+        a partir de um dict {flag_name: int | bool}. Expande a lista com 0 se
         necessário; IDs fora do conhecimento do editor são preservados.
+
+        Aceita tanto bool (compatibilidade com a UI antiga, onde True/False
+        mapeiam para 1/0) quanto int (Sprint 13 — Quest Intelligence, onde
+        o valor codifica um estado narrativo de 0..N). Valores negativos são
+        clampados para 0; o limite superior é validado contra
+        quest_states.max_known_state() apenas como referência — valores
+        maiores são preservados (podem ser estados legítimos do jogo ainda
+        não documentados), apenas registrados em log.
         """
+        from src.core.database.quest_states import max_known_state
+        import logging
+        logger = logging.getLogger("core.models.player")
+
         qlist = list(self._p.get("questFlags", []))
         max_id = max(q["id"] for q in QUEST_FLAGS)
+        # Expande com False (não 0) para preservar `is True`/`is False` em
+        # testes legados que comparam identidade de bool nos slots
+        # recém-criados — bool é subclasse de int, então 0/1 funcionam
+        # igual para qualquer uso numérico, mas `qlist[i] is False` só é
+        # verdadeiro se o valor expandido for de fato o singleton bool.
         while len(qlist) <= max_id:
             qlist.append(False)
         for q in QUEST_FLAGS:
             if q["flag"] in flags_by_name:
-                qlist[q["id"]] = bool(flags_by_name[q["flag"]])
+                raw = flags_by_name[q["flag"]]
+                if isinstance(raw, bool):
+                    # Compatibilidade com a UI antiga / testes existentes:
+                    # bool é persistido como bool (True/False), não como
+                    # int, para preservar `is True`/`is False`.
+                    qlist[q["id"]] = raw
+                    continue
+                value = max(0, int(raw))
+                known_max = max_known_state(q["flag"])
+                if value > known_max:
+                    logger.info(
+                        "questFlags[%s] = %d excede o maior estado documentado "
+                        "(%d) — valor preservado sem alteração.",
+                        q["flag"], value, known_max,
+                    )
+                qlist[q["id"]] = value
         self._p["questFlags"] = qlist
 
     def get_quest_flags_by_name(self) -> dict[str, bool]:
-        """Retorna {flag_name: bool} para todos os QUEST_FLAGS conhecidos."""
+        """
+        Retorna {flag_name: bool} para todos os QUEST_FLAGS conhecidos.
+
+        Mantido para compatibilidade com código existente que só precisa
+        saber se a flag está "ativa" (valor != 0), sem distinguir entre
+        estados narrativos. Para o valor inteiro completo, use
+        get_quest_states_by_name().
+        """
         qlist = self._p.get("questFlags", [])
         result = {}
         for q in QUEST_FLAGS:
             idx = q["id"]
             result[q["flag"]] = bool(qlist[idx]) if idx < len(qlist) else False
+        return result
+
+    def get_quest_states_by_name(self) -> dict[str, int]:
+        """
+        Retorna {flag_name: int} com o valor bruto de questFlags para cada
+        QUEST_FLAGS conhecido — Sprint 13 (Quest Intelligence).
+
+        Use junto com src.core.database.quest_states.describe_state() para
+        obter o label/descrição narrativa do estado atual.
+        """
+        qlist = self._p.get("questFlags", [])
+        result = {}
+        for q in QUEST_FLAGS:
+            idx = q["id"]
+            result[q["flag"]] = int(qlist[idx]) if idx < len(qlist) else 0
         return result
 
     # — Estatísticas —

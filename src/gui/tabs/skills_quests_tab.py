@@ -4,6 +4,9 @@ import tkinter as tk
 from tkinter import ttk
 from src.core.database.skills  import SKILL_NAMES as NOMES_SKILLS
 from src.core.database.quests  import QUEST_FLAGS
+from src.core.database.quest_states import (
+    quest_state_options, describe_state, is_multi_state,
+)
 from src.gui.constants         import THEME
 from src.core.save_model       import FIELD_LIMITS
 
@@ -23,7 +26,7 @@ class SkillsQuestsTab(ttk.Frame):
         super().__init__(parent, padding=4)
         self._skill_vars: dict[str, tk.StringVar]   = {}
         self._skill_widgets: dict[str, tk.Widget]    = {}
-        self._quest_vars: dict[str, tk.BooleanVar]   = {}
+        self._quest_states: dict[str, int]          = {}  # Sprint 13 — Quest Intelligence
         self._gv_vars: list[tk.StringVar]            = []  # 64 slots — Sprint 11
         self._build()
 
@@ -40,16 +43,10 @@ class SkillsQuestsTab(ttk.Frame):
             self._skill_widgets[name].config(state="normal")
             self._skill_vars[name].set(str(val))
 
-        # Quest flags
-        flags_by_name = player.get_quest_flags_by_name()
-        self._quest_listbox.delete(0, tk.END)
-        self._quest_vars.clear()
-        for q in QUEST_FLAGS:
-            flag_name = q["flag"]
-            is_active = flags_by_name.get(flag_name, False)
-            var = tk.BooleanVar(value=is_active)
-            self._quest_vars[flag_name] = var
-            self._insert_quest_row(tk.END, q["floor"], flag_name, is_active)
+        # Quest flags (Sprint 13 — Quest Intelligence)
+        states_by_name = player.get_quest_states_by_name()
+        self._quest_states = dict(states_by_name)
+        self._refresh_quest_tree()
 
         # Global vars — grade editável de 64 slots (Sprint 11)
         gv = player.global_vars
@@ -59,8 +56,12 @@ class SkillsQuestsTab(ttk.Frame):
     def get_skills(self) -> dict[str, int]:
         return {name: int(self._skill_vars[name].get() or 0) for name in NOMES_SKILLS}
 
-    def get_flags(self) -> dict[str, bool]:
-        return {name: var.get() for name, var in self._quest_vars.items()}
+    def get_flags(self) -> dict[str, int]:
+        """
+        Retorna {flag_name: int} com o estado narrativo atual de cada quest
+        flag (Sprint 13). PlayerModel.quest_flags aceita int diretamente.
+        """
+        return dict(self._quest_states)
 
     def get_global_vars(self) -> dict[int, int]:
         """
@@ -127,22 +128,167 @@ class SkillsQuestsTab(ttk.Frame):
                     row=row, column=2, sticky="ns", padx=18)
 
     def _build_quests(self, parent) -> None:
+        """
+        Sprint 13 — Quest Intelligence.
+
+        Treeview com colunas Flag | Estado Atual | Descrição do Estado.
+        Cada flag pode ter 2 estados (binário: Inativo/Ativo) ou N estados
+        narrativos documentados em database/quest_states.py. Duplo-clique
+        ou o botão "Change State" abrem um diálogo com as opções válidas
+        para aquela flag específica.
+        """
         ttk.Label(parent,
-                  text="Double-click to toggle a flag.",
-                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic")).pack(pady=(0, 6))
+                  text="Duplo-clique ou 'Change State' para editar o estado narrativo de uma flag.",
+                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic")).pack(anchor="w", pady=(0, 6))
+
         container = ttk.Frame(parent)
         container.pack(fill="both", expand=True)
-        sb = ttk.Scrollbar(container)
+
+        cols = ("floor", "flag", "state", "desc")
+        self._quest_tree = ttk.Treeview(
+            container, columns=cols, show="headings", height=14)
+        self._quest_tree.heading("floor", text="Floor")
+        self._quest_tree.heading("flag",  text="Flag")
+        self._quest_tree.heading("state", text="Estado Atual")
+        self._quest_tree.heading("desc",  text="Descrição do Estado")
+        self._quest_tree.column("floor", width=70,  anchor="w")
+        self._quest_tree.column("flag",  width=180, anchor="w")
+        self._quest_tree.column("state", width=160, anchor="w")
+        self._quest_tree.column("desc",  width=420, anchor="w")
+
+        sb = ttk.Scrollbar(container, orient="vertical", command=self._quest_tree.yview)
+        self._quest_tree.configure(yscrollcommand=sb.set)
+        self._quest_tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
-        self._quest_listbox = tk.Listbox(
-            container, font=("Consolas", 10),
-            background=THEME["list_bg"], foreground=THEME["tag_quest_off"],
-            selectbackground=THEME["list_select"], highlightthickness=0,
-            yscrollcommand=sb.set)
-        self._quest_listbox.pack(fill="both", expand=True, side="left")
-        sb.config(command=self._quest_listbox.yview)
-        self._quest_listbox.bind("<<ListboxSelect>>", self._on_select)
-        self._quest_listbox.bind("<Double-Button-1>", self._on_toggle)
+
+        self._quest_tree.tag_configure("inactive", foreground=THEME["tag_quest_off"])
+        self._quest_tree.tag_configure("active",   foreground=THEME["tag_quest_on"])
+        self._quest_tree.tag_configure("unknown",  foreground=THEME["fg_dim"])
+
+        self._quest_tree.bind("<Double-1>", self._on_quest_double_click)
+
+        btn_row = ttk.Frame(parent)
+        btn_row.pack(fill="x", pady=(6, 0))
+        ttk.Button(btn_row, text="Change State…",
+                   command=self._on_change_state_clicked).pack(side="left")
+        ttk.Label(btn_row,
+                  text="  Flags com 2 estados alternam direto; flags com 3+ estados abrem um seletor.",
+                  foreground=THEME["fg_dim"], font=("Arial", 8, "italic")).pack(side="left")
+
+    # ------------------------------------------------------------------
+    # Quest Flags — lógica (Sprint 13)
+    # ------------------------------------------------------------------
+
+    def _refresh_quest_tree(self) -> None:
+        """Repopula o Treeview a partir de self._quest_states."""
+        for row in self._quest_tree.get_children():
+            self._quest_tree.delete(row)
+
+        for q in QUEST_FLAGS:
+            flag_name = q["flag"]
+            value = self._quest_states.get(flag_name, 0)
+            self._insert_quest_row(flag_name, q["floor"], value)
+
+    def _insert_quest_row(self, flag_name: str, floor: str, value: int) -> None:
+        info = describe_state(flag_name, value)
+        tag = "unknown" if info["label"].startswith("Desconhecido") else (
+            "active" if value > 0 else "inactive")
+        self._quest_tree.insert(
+            "", "end", iid=flag_name,
+            values=(floor, flag_name, info["label"], info["desc"]),
+            tags=(tag,))
+
+    def _on_quest_double_click(self, _event) -> None:
+        sel = self._quest_tree.selection()
+        if sel:
+            self._open_state_dialog(sel[0])
+
+    def _on_change_state_clicked(self) -> None:
+        sel = self._quest_tree.selection()
+        if not sel:
+            return
+        self._open_state_dialog(sel[0])
+
+    def _open_state_dialog(self, flag_name: str) -> None:
+        """
+        Abre o seletor de estado para `flag_name`.
+
+        Flags binárias (2 estados): alterna direto entre 0/1, sem diálogo —
+        igual ao antigo "double-click to toggle", mas agora atualiza a
+        coluna de descrição também.
+
+        Flags com 3+ estados documentados (is_multi_state): abre um
+        Toplevel com um Radiobutton por estado, mostrando label + descrição
+        completa de cada opção, para que o usuário escolha com contexto
+        narrativo — não apenas um número.
+        """
+        current = self._quest_states.get(flag_name, 0)
+        q = next((q for q in QUEST_FLAGS if q["flag"] == flag_name), None)
+        if q is None:
+            return
+
+        if not is_multi_state(flag_name):
+            # Binário: alterna 0 <-> 1 imediatamente.
+            new_value = 0 if current > 0 else 1
+            self._quest_states[flag_name] = new_value
+            self._insert_at_same_position(flag_name, q["floor"], new_value)
+            return
+
+        # Multi-estado: diálogo com Radiobuttons
+        options = quest_state_options(flag_name)
+        win = tk.Toplevel(self)
+        win.title(f"Quest State — {flag_name}")
+        win.resizable(False, False)
+        win.transient(self.winfo_toplevel())
+        win.grab_set()
+
+        ttk.Label(win, text=flag_name, font=("Arial", 10, "bold")).pack(
+            anchor="w", padx=12, pady=(12, 2))
+        ttk.Label(win, text=q["desc"], foreground=THEME["fg_dim"],
+                  font=("Arial", 8, "italic"), wraplength=420,
+                  justify="left").pack(anchor="w", padx=12, pady=(0, 10))
+
+        selected = tk.IntVar(value=current)
+        for value in sorted(options.keys()):
+            info = options[value]
+            frame = ttk.Frame(win)
+            frame.pack(fill="x", padx=12, pady=2, anchor="w")
+            ttk.Radiobutton(frame, text=f"{value} — {info['label']}",
+                            variable=selected, value=value,
+                            width=28).pack(side="left", anchor="n")
+            ttk.Label(frame, text=info["desc"], foreground=THEME["fg_secondary"],
+                      font=("Arial", 8), wraplength=320,
+                      justify="left").pack(side="left", padx=(8, 0))
+
+        def _apply() -> None:
+            new_value = selected.get()
+            self._quest_states[flag_name] = new_value
+            self._insert_at_same_position(flag_name, q["floor"], new_value)
+            win.destroy()
+
+        btn_row = ttk.Frame(win)
+        btn_row.pack(fill="x", padx=12, pady=(8, 12))
+        ttk.Button(btn_row, text="Apply", command=_apply, width=10).pack(side="right")
+        ttk.Button(btn_row, text="Cancel", command=win.destroy, width=10).pack(
+            side="right", padx=(0, 6))
+
+    def _insert_at_same_position(self, flag_name: str, floor: str, value: int) -> None:
+        """
+        Atualiza a linha de `flag_name` no Treeview preservando a seleção
+        e a posição (delete + insert no índice original, igual ao padrão
+        já usado pelo antigo Listbox).
+        """
+        index = self._quest_tree.index(flag_name)
+        self._quest_tree.delete(flag_name)
+        info = describe_state(flag_name, value)
+        tag = "unknown" if info["label"].startswith("Desconhecido") else (
+            "active" if value > 0 else "inactive")
+        self._quest_tree.insert(
+            "", index, iid=flag_name,
+            values=(floor, flag_name, info["label"], info["desc"]),
+            tags=(tag,))
+        self._quest_tree.selection_set(flag_name)
+        self._quest_tree.see(flag_name)
 
     def _build_global_vars(self, parent) -> None:
         """
@@ -196,29 +342,3 @@ class SkillsQuestsTab(ttk.Frame):
             if col < n_cols - 1:
                 ttk.Separator(inner, orient="vertical").grid(
                     row=row, column=base_col + 2, sticky="ns", padx=12)
-
-    def _on_select(self, _event) -> None:
-        sel = self._quest_listbox.curselection()
-        if sel and sel[0] < len(QUEST_FLAGS):
-            self.winfo_toplevel().title(f"Quest: {QUEST_FLAGS[sel[0]]['desc']}")
-
-    def _on_toggle(self, _event) -> None:
-        sel = self._quest_listbox.curselection()
-        if not sel or sel[0] >= len(QUEST_FLAGS):
-            return
-        index = sel[0]
-        q = QUEST_FLAGS[index]
-        fname = q["flag"]
-        if fname not in self._quest_vars:
-            return
-        new_val = not self._quest_vars[fname].get()
-        self._quest_vars[fname].set(new_val)
-        self._quest_listbox.delete(index)
-        self._insert_quest_row(index, q["floor"], fname, new_val)
-        self._quest_listbox.selection_set(index)
-
-    def _insert_quest_row(self, index, floor, flag_name, is_active) -> None:
-        icon = "[✓]" if is_active else "[ ]"
-        self._quest_listbox.insert(index, f"  {icon}  {floor:<10} {flag_name}")
-        fg = THEME["tag_quest_on"] if is_active else THEME["tag_quest_off"]
-        self._quest_listbox.itemconfig(index, foreground=fg)
