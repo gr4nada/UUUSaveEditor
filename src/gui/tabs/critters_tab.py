@@ -147,11 +147,18 @@ class CrittersTab(ttk.Frame):
 
     def _build_bottom_panel(self) -> None:
         bottom = ttk.Frame(self)
-        bottom.pack(fill="x", pady=(6, 0))
-        self._build_portrait_panel(bottom)
-        self._build_detail_panel(bottom)
+        bottom.pack(fill="both", expand=True, pady=(6, 0))
+
+        # Linha superior: Portrait | Details | Editor (lado a lado)
+        top_row = ttk.Frame(bottom)
+        top_row.pack(fill="x")
+        self._build_portrait_panel(top_row)
+        self._build_detail_panel(top_row)
+        self._build_editor_panel(top_row)
+
+        # Linha inferior: Loot em largura total
         self._build_loot_panel(bottom)
-        self._build_editor_panel(bottom)
+
         self._build_inspector_panel()
 
     def _build_portrait_panel(self, parent: ttk.Frame) -> None:
@@ -177,6 +184,7 @@ class CrittersTab(ttk.Frame):
     def _build_detail_panel(self, parent: ttk.Frame) -> None:
         lf = ttk.LabelFrame(parent, text=" Details ", padding=4)
         lf.pack(side="left", fill="both", expand=True, padx=(0, 4))
+        # expande horizontalmente entre o portrait (esquerda) e o editor (direita)
 
         self._detail = tk.Text(
             lf, height=7, font=("Consolas", 8),
@@ -198,20 +206,23 @@ class CrittersTab(ttk.Frame):
 
     def _build_loot_panel(self, parent: ttk.Frame) -> None:
         lf = ttk.LabelFrame(parent, text=" Loot ", padding=4)
-        lf.pack(side="left", fill="both", expand=True)
+        lf.pack(fill="x", pady=(4, 0))
 
         loot_vsb = ttk.Scrollbar(lf, orient="vertical")
         loot_vsb.pack(side="right", fill="y")
 
         self._loot_tree = ttk.Treeview(
-            lf, columns=("img", "name", "qty", "enchant"),
-            show="headings", height=6,
+            lf, columns=("name", "qty", "enchant"),
+            show="tree headings", height=5,
             yscrollcommand=loot_vsb.set)
         loot_vsb.config(command=self._loot_tree.yview)
         self._loot_tree.pack(fill="both", expand=True)
 
+        # #0 (tree column) carrega o ícone do item
+        self._loot_tree.heading("#0", text="")
+        self._loot_tree.column("#0", width=28, minwidth=28, stretch=False)
+
         for col, heading, width in (
-            ("img",    "",         28),
             ("name",   "Item",    160),
             ("qty",    "Qty",      32),
             ("enchant","Enchant", 130),
@@ -420,7 +431,7 @@ class CrittersTab(ttk.Frame):
 
         loot = c.get("loot", [])
         if not loot:
-            self._loot_tree.insert("", "end", values=("", "— empty —", "", ""))
+            self._loot_tree.insert("", "end", values=("— empty —", "", ""))
             return
 
         for item in loot:
@@ -429,10 +440,9 @@ class CrittersTab(ttk.Frame):
             self._loot_icons.append(photo)
 
             tags = ("ench",) if item["enchantment"] else ()
-            iid  = self._loot_tree.insert("", "end", values=(
-                "", item["name"], item["quantity"], item["enchantment"],
+            self._loot_tree.insert("", "end", image=photo or "", values=(
+                item["name"], item["quantity"], item["enchantment"],
             ), tags=tags)
-            self._loot_tree.item(iid, image=photo)
 
     # ------------------------------------------------------------------
     # Ordenação
