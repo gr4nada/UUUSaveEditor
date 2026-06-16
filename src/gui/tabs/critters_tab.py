@@ -342,8 +342,19 @@ class CrittersTab(ttk.Frame):
         self._portrait_canvas.delete("all")
         self._portrait_ref = None
 
-        photo = self._loader.get_whoami_portrait(
-            c["whoami_id"], size=(_PORTRAIT_W, _PORTRAIT_H))
+        photo = None
+        size  = (_PORTRAIT_W, _PORTRAIT_H)
+
+        whoami_id  = c["whoami_id"]
+        critter_id = c.get("critter_id")
+
+        if whoami_id > 0:
+            # Named NPC — use whoami portrait (assets/WhoAmI/)
+            photo = self._loader.get_whoami_portrait(whoami_id, size=size)
+
+        if photo is None and critter_id is not None:
+            # Generic monster — use critter sprite (assets/npc_whoami/)
+            photo = self._loader.get_critter_portrait(critter_id, size=size)
 
         if photo:
             self._portrait_ref = photo
@@ -352,7 +363,7 @@ class CrittersTab(ttk.Frame):
         else:
             self._draw_portrait_placeholder()
 
-        label = c["name"] if c["whoami_id"] > 0 else c["type_name"]
+        label = c["name"] if whoami_id > 0 else c["type_name"]
         self._portrait_name_lbl.config(text=label, foreground=THEME["fg_muted"])
 
     def _draw_portrait_placeholder(self) -> None:

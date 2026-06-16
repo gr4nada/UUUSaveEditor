@@ -17,8 +17,9 @@ from PIL import Image, ImageTk
 
 logger = logging.getLogger("gui.widgets.icon_loader")
 
-_ICONS_DIR  = os.path.join("assets", "icons")
-_WHOAMI_DIR = os.path.join("assets", "WhoAmI")
+_ICONS_DIR      = os.path.join("assets", "icons")
+_WHOAMI_DIR     = os.path.join("assets", "WhoAmI")
+_NPC_WHOAMI_DIR = os.path.join("assets", "npc_whoami")
 
 # Tamanhos canônicos usados nas diferentes views
 ICON_SMALL  = (24, 24)   # Treeview de items (world objects, loot)
@@ -102,6 +103,34 @@ class IconLoader:
         self._cache[key] = photo
         return photo
 
+    def get_critter_portrait(
+        self,
+        critter_id: int,
+        size: tuple[int, int] = WHOAMI_SIZE,
+    ) -> ImageTk.PhotoImage | None:
+        """
+        Returns a PhotoImage for a generic monster sprite (critter_id 0-63).
+        Reads from assets/npc_whoami/{critter_id}.png or .gif.
+        Returns None if no asset exists for this critter_id.
+        """
+        key = ("critter", critter_id, size)
+        if key in self._cache:
+            return self._cache[key]
+
+        path = self._find_critter_path(critter_id)
+        if not path:
+            return None
+
+        try:
+            img = Image.open(path).convert("RGBA")
+            img = img.resize(size, Image.Resampling.LANCZOS)
+            photo = ImageTk.PhotoImage(img)
+            self._cache[key] = photo
+            return photo
+        except Exception as e:
+            logger.debug("critter portrait load failed id=%d: %s", critter_id, e)
+            return None
+
     def get_whoami_portrait(
         self,
         whoami_id: int,
@@ -143,6 +172,15 @@ class IconLoader:
             p = os.path.join(_ICONS_DIR, f"{name}.png")
             if os.path.exists(p):
                 return p
+        return None
+
+    @staticmethod
+    def _find_critter_path(critter_id: int) -> str | None:
+        for name in (str(critter_id), f"{critter_id:03d}"):
+            for ext in ("png", "gif"):
+                p = os.path.join(_NPC_WHOAMI_DIR, f"{name}.{ext}")
+                if os.path.exists(p):
+                    return p
         return None
 
     @staticmethod
