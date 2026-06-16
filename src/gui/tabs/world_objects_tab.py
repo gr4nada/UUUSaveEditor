@@ -16,9 +16,8 @@ from src.gui.constants           import THEME
 
 _GROUPS = list(ITEM_TYPE_GROUPS.keys())
 
-_COLS = ("img", "name", "type", "level", "qty", "enchant", "loc")
+_COLS = ("name", "type", "level", "qty", "enchant", "loc")
 _COL_CFG = {
-    "img":     ("",            28,  "center"),
     "name":    ("Name",       200,  "w"),
     "type":    ("Type",        86,  "center"),
     "level":   ("Lv",          30,  "center"),
@@ -91,13 +90,17 @@ class WorldObjectsTab(ttk.Frame):
         hsb.pack(side="bottom", fill="x")
 
         self._tree = ttk.Treeview(
-            tf, columns=_COLS, show="headings",
+            tf, columns=_COLS, show="tree headings",
             yscrollcommand=vsb.set, xscrollcommand=hsb.set,
             selectmode="browse",
         )
         self._tree.pack(fill="both", expand=True)
         vsb.config(command=self._tree.yview)
         hsb.config(command=self._tree.xview)
+
+        # #0 = ícone (única coluna que ttk.Treeview renderiza image=)
+        self._tree.heading("#0", text="")
+        self._tree.column("#0", width=28, stretch=False, anchor="center")
 
         for col, (heading, width, anchor) in _COL_CFG.items():
             self._tree.heading(col, text=heading,
@@ -128,11 +131,10 @@ class WorldObjectsTab(ttk.Frame):
             photo = self._loader.get_item_icon(item["object_type"], ICON_SMALL)
             self._row_icons.append(photo)
 
-            iid = self._tree.insert("", "end", values=(
-                "", name, item["type_name"],
+            iid = self._tree.insert("", "end", image=photo, values=(
+                name, item["type_name"],
                 item["level"], item["quantity"], ench, loc,
             ), tags=tags)
-            self._tree.item(iid, image=photo)
 
         n = len(visible)
         t = len(self._all_items)

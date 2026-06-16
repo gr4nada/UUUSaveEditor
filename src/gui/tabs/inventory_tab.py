@@ -8,7 +8,7 @@ import logging
 
 from src.core.inventory               import get_equipment_summary
 from src.gui.widgets.tooltip     import Tooltip
-from src.gui.widgets.icon_loader     import IconLoader, ICON_MEDIUM
+from src.gui.widgets.icon_loader     import IconLoader, ICON_MEDIUM, ICON_SMALL
 from src.gui.constants               import THEME
 
 logger = logging.getLogger("gui.tabs.inventory")
@@ -44,6 +44,7 @@ class InventoryTab(ttk.Frame):
         self._loader = IconLoader.get_instance()
         self._on_slot_clicked = None
         self._save_game = None
+        self._mi_icons: list = []   # keeps PhotoImage refs alive for main inventory tree
         self._build()
 
     def set_on_slot_clicked(self, fn) -> None:
@@ -174,7 +175,7 @@ class InventoryTab(ttk.Frame):
         self._mi_tree = ttk.Treeview(
             tree_frame, columns=self._MI_COLS, show="tree headings", selectmode="browse")
         self._mi_tree.heading("#0", text="")
-        self._mi_tree.column("#0", width=24, stretch=False)
+        self._mi_tree.column("#0", width=28, stretch=False, anchor="center")
         for col in self._MI_COLS:
             label, width, anchor = self._MI_COL_CFG[col]
             self._mi_tree.heading(col, text=label)
@@ -196,6 +197,7 @@ class InventoryTab(ttk.Frame):
         if not hasattr(self, "_mi_tree"):
             return
         self._mi_tree.delete(*self._mi_tree.get_children())
+        self._mi_icons.clear()
         if not self._save_game:
             return
 
@@ -203,9 +205,12 @@ class InventoryTab(ttk.Frame):
             self._insert_main_inventory_row("", str(idx), obj)
 
     def _insert_main_inventory_row(self, parent_iid: str, iid: str, obj) -> None:
+        photo = self._loader.get_item_icon(obj.object_type, ICON_SMALL)
+        self._mi_icons.append(photo)   # keep ref alive
         contents = f"{obj.contents_count} items" if obj.contents_count else ""
         self._mi_tree.insert(
             parent_iid, "end", iid=iid,
+            image=photo,               # rendered in #0 — the only column that works
             values=(obj.object_name, obj.object_type_name,
                     obj.quantity, obj.enchantment, contents))
         for child_idx, child in enumerate(obj.contents):
