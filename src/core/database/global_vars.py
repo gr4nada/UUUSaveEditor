@@ -18,7 +18,7 @@ GLOBAL_VAR_NAMES: dict[int, str] = {
 }
 
 def global_var_name(var_id: int) -> str:
-    """int → nome legível ou fallback."""
+    """int → readable name or fallback."""
     return GLOBAL_VAR_NAMES.get(var_id, f"GlobalVar#{var_id}")
 
 def describe_global_var(var_id: int, value: int) -> str:
