@@ -10,13 +10,13 @@ import tkinter as tk
 from tkinter import ttk
 from typing import List, Dict, Optional
 
-from .critter_model import Critter
-from .filters import filter_critters
-from .components.portrait_panel import PortraitPanel
-from .components.detail_panel import DetailPanel
-from .components.loot_panel import LootPanel
-from .components.editor_panel import EditorPanel
-from .components.inspector_panel import InspectorPanel
+from .critters.critter_model import Critter
+from .critters.filters import filter_critters
+from .critters.components.portrait_panel import PortraitPanel
+from .critters.components.detail_panel import DetailPanel
+from .critters.components.loot_panel import LootPanel
+from .critters.components.editor_panel import EditorPanel
+from .critters.components.inspector_panel import InspectorPanel
 
 from src.core.database.critters import ECritterAttitude, ATTITUDE_BY_NAME, ATTITUDE_COLORS
 from src.gui.widgets.icon_loader import IconLoader, ICON_SMALL
@@ -50,8 +50,9 @@ class CrittersTab(ttk.Frame):
     # Public API
     # ------------------------------------------------------------------
 
-    def load(self, critters: List[Dict]) -> None:
+    def load(self, critters: List[Dict], save_game=None) -> None:
         """Load critters data and refresh the view."""
+        self._save_game = save_game
         self._all_critters = critters
         self._update_level_filter()
         self._apply_filter()
@@ -254,11 +255,11 @@ class CrittersTab(ttk.Frame):
 
         self._selected = critter
 
-        self._portrait_panel.update_portrait(critter)
+        self._portrait_panel.update(critter)
         self._detail_panel.update(critter)
         self._loot_panel.update(critter)
         self._editor_panel.refresh(critter)
-        self._inspector_panel.refresh(critter)
+        self._inspector_panel.load_critter(critter, self._save_game)
 
     # ------------------------------------------------------------------
     # Sorting
