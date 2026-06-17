@@ -17,24 +17,24 @@ def filter_critters(
     search_term: str = ""
 ) -> List[Dict]:
     """
-    Aplica múltiplos filtros à lista de critters.
-    
+    Apply multiple filters to the critters list.
+
     Args:
-        critters: Lista de dicionários crus retornados por parse_world()
-        show_dead: Se False, esconde critters mortos
-        min_level: Nível mínimo (0 = mostrar todos)
-        attitude_filter: Filtrar por atitude específica (0-3)
-        search_term: Termo de busca (nome, tipo, estado, objetivo)
-    
+        critters: List of raw dicts returned by parse_world()
+        show_dead: If False, hide dead critters
+        min_level: Minimum level (0 = show all)
+        attitude_filter: Filter by specific attitude (0-3)
+        search_term: Search term (name, type, state, goal)
+
     Returns:
-        Lista filtrada de critters
+        Filtered list of critters
     """
     if not critters:
         return []
 
     visible = critters.copy()
 
-    # Filtro: Mortos
+    # Filter: Dead
     if not show_dead:
         visible = [c for c in visible if not c.get("dead", False)]
 

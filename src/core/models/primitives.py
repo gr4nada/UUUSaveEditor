@@ -1,11 +1,11 @@
 # src/core/models/primitives.py
 """
-Primitivos de validação partilhados por todos os models.
+Shared validation primitives for all models.
 
-    ValidationError   — erro com metadados de campo (field, value, lo, hi)
-    FIELD_LIMITS      — limites por campo (min_inclusive, max_inclusive)
-    _clamp            — limita silenciosamente (status/sobrevivência)
-    _validate         — levanta ValidationError (progressão/combate)
+    ValidationError   — error with field metadata (field, value, lo, hi)
+    FIELD_LIMITS      — limits per field (min_inclusive, max_inclusive)
+    _clamp            — silently limits (status/survival)
+    _validate         — raises ValidationError (progression/combat)
 """
 from __future__ import annotations
 
@@ -16,12 +16,12 @@ from __future__ import annotations
 
 class ValidationError(ValueError):
     """
-    Levantada quando um valor viola os limites do jogo.
+    Raised when a value violates game limits.
 
-    Carrega metadados suficientes para a GUI exibir uma mensagem útil:
-        field   → nome do campo (ex: "hp")
-        value   → valor rejeitado
-        lo / hi → limites permitidos (None = sem limite nesse lado)
+    Carries metadata sufficient for GUI to display a useful message:
+        field   → field name (e.g.: "hp")
+        value   → rejected value
+        lo / hi → allowed limits (None = no limit on that side)
     """
     def __init__(self, field: str, value, lo=None, hi=None, msg: str = ""):
         self.field = field
@@ -32,8 +32,8 @@ class ValidationError(ValueError):
             parts = []
             if lo is not None: parts.append(f">= {lo}")
             if hi is not None: parts.append(f"<= {hi}")
-            msg = (f"'{field}' = {value!r} está fora do intervalo permitido "
-                   f"({' e '.join(parts) or 'desconhecido'})")
+            msg = (f"'{field}' = {value!r} is out of allowed range "
+                   f"({' and '.join(parts) or 'unknown'})")
         super().__init__(msg)
 
 

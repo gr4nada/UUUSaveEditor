@@ -1,10 +1,10 @@
 # src/core/models/objects.py
 """
-GameObject — wrapper sobre nós com jsonData aninhado.
+GameObject — wrapper over nodes with nested jsonData.
 
-Cobre itens de inventário, world objects, containers e critters.
-Garante parse único (cache), commit em cascata para containers aninhados,
-e setters com clamp inline para campos críticos (hp, quantity).
+Covers inventory items, world objects, containers, and critters.
+Ensures single parse (cached), cascade commit for nested containers,
+and setters with inline clamp for critical fields (hp, quantity).
 """
 from __future__ import annotations
 import json
@@ -14,17 +14,17 @@ logger = logging.getLogger("core.models.objects")
 
 class GameObject:
     """
-    Wrapper sobre um nó de objeto de jogo (item de inventário, world object, etc.)
-    que possui um campo `jsonData` com uma string JSON aninhada.
+    Wrapper over a game object node (inventory item, world object, etc.)
+    that has a `jsonData` field with nested JSON string.
 
-    Uso:
-        obj.parsed_data         # dict — faz parse de jsonData uma vez e cacheia
-        obj.quantity            # lê de parsed_data, com fallback para o nó externo
-        obj.quantity = 5        # escreve em ambos os níveis e re-serializa jsonData
-        obj.commit()            # força a re-serialização de jsonData a partir de parsed_data
+    Usage:
+        obj.parsed_data         # dict — parses jsonData once and caches
+        obj.quantity            # reads from parsed_data, with fallback to external node
+        obj.quantity = 5        # writes to both levels and re-serializes jsonData
+        obj.commit()            # forces re-serialization of jsonData from parsed_data
 
-    Mutações em `parsed_data` (dict) só são persistidas em `jsonData` quando
-    `commit()` é chamado — automaticamente disparado pelos setters desta classe.
+    Mutations to `parsed_data` (dict) are only persisted to `jsonData` when
+    `commit()` is called — automatically triggered by setters in this class.
     """
 
     def __init__(self, node: dict, _parent: "GameObject | None" = None) -> None:
@@ -43,24 +43,24 @@ class GameObject:
             try:
                 self._parsed = json.loads(raw) if raw else {}
             except Exception:
-                logger.warning("Falha ao decodificar jsonData de %r", self._node.get("objectName"))
+                logger.warning("Failed to decode jsonData from %r", self._node.get("objectName"))
                 self._parsed = {}
         return self._parsed
 
     def commit(self) -> None:
         """
-        Re-serializa parsed_data para jsonData, se já foi carregado.
-        Propaga para o GameObject pai (se houver), já que o nó deste
-        objeto pode viver dentro de parsed_data["contents"] do pai —
-        sem propagar, a mudança ficaria presa no parsed_data em cache
-        do pai e nunca chegaria ao jsonData persistido dele.
+        Re-serializes parsed_data to jsonData, if already loaded.
+        Propagates to parent GameObject (if any), since this object's node
+        may live inside the parent's parsed_data["contents"] — without
+        propagating, the change would be stuck in the parent's cached
+        parsed_data and never reach its persisted jsonData.
         """
         if self._parsed is not None:
             self._node["jsonData"] = json.dumps(self._parsed)
         if self._parent is not None:
             self._parent.commit()
 
-    # — Campos comuns —
+    # — Common fields —
     @property
     def object_name(self) -> str:
         return self._node.get("objectName") or self.parsed_data.get("objectName", "") or ""
@@ -100,7 +100,7 @@ class GameObject:
         return len(items)
 
     def _contents_list(self) -> list | None:
-        """Retorna a lista `contents` real (node ou parsed_data), ou None se inexistente."""
+        """Returns the real `contents` list (node or parsed_data), or None if nonexistent."""
         if "contents" in self._node:
             return self._node["contents"]
         if "contents" in self.parsed_data:
@@ -108,10 +108,10 @@ class GameObject:
         return None
 
     def delete_content(self, index: int) -> None:
-        """Remove o item de índice `index` da lista `contents` deste container."""
+        """Removes item at index `index` from this container's `contents` list."""
         items = self._contents_list()
         if items is None or not (0 <= index < len(items)):
-            logger.error("GameObject.delete_content: índice fora de alcance: %d", index)
+            logger.error("GameObject.delete_content: index out of range: %d", index)
             return
         removed = items.pop(index)
         self.commit()

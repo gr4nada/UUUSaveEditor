@@ -1,13 +1,13 @@
 # src/core/database/skills.py
 """
-Enciclopédia de skills e classes do jogador.
+Player skills and classes encyclopedia.
 
-Fonte única de verdade para:
-  - SKILL_NAMES      — lista ordenada dos 20 skills do jogador
-  - PLAYER_CLASSES   — nomes das 8 classes jogáveis
-  - EPlayerClass     — enum de classes
+Single source of truth for:
+  - SKILL_NAMES      — ordered list of 20 player skills
+  - PLAYER_CLASSES   — names of 8 playable classes
+  - EPlayerClass     — classes enum
 
-Anteriormente em:
+Previously in:
   - src/core/enums.py (NOMES_SKILLS, EPlayerClass)
 """
 from __future__ import annotations
@@ -15,7 +15,7 @@ from enum import Enum
 
 
 # ---------------------------------------------------------------------------
-# Classes do jogador
+# Player classes
 # ---------------------------------------------------------------------------
 
 class EPlayerClass(Enum):

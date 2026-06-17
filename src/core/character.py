@@ -125,12 +125,12 @@ def update_character(raw_save_data: dict, updated_attributes: dict, updated_skil
         # Explicit type guard rejection bounds: Silently drop parameters mapping beyond str or int types
 
     # --- Core numeric fields ---
-    # Validação de range em duas fases:
-    #   1ª passada: valida TODOS os campos fornecidos sem escrever nada.
-    #               Se qualquer campo violar FIELD_LIMITS, ValidationError é
-    #               levantada aqui e raw_save_data permanece intocado.
-    #   2ª passada: aplica os valores já validados via setters de PlayerModel
-    #               (mesmo padrão de GameObject.hp e dos critters).
+    # --- Validation in two phases:
+    #   1st pass: validates ALL fields without writing anything.
+    #             If any field violates FIELD_LIMITS, ValidationError is
+    #             raised here and raw_save_data remains untouched.
+    #   2nd pass: applies already-validated values via PlayerModel setters
+    #             (same pattern as GameObject.hp and critters).
     pending: dict[str, int] = {}
     for raw_attr in _NUMERIC_ATTRIBUTES:
         if raw_attr not in updated_attributes:

@@ -1,6 +1,6 @@
 # src/core/database/__init__.py
 """
-Knowledge Base do UUU Save Editor — fonte única de verdade sobre o jogo.
+Knowledge Base of UUU Save Editor — single source of truth about the game.
 """
 
 from src.core.database import objects, critters, whoami, quests, skills

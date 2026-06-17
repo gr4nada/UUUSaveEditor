@@ -2,8 +2,8 @@
 """
 Global variables / engine trackers (playerData.globalVars[0..63]).
 
-Fonte única de verdade para:
-  - GLOBAL_VAR_NAMES — nomes legíveis de variáveis globais conhecidas
+Single source of truth for:
+  - GLOBAL_VAR_NAMES — readable names of known global variables
   - get_global_var_name() / describe_global_var()
 """
 

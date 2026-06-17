@@ -133,7 +133,7 @@ ATTITUDE_COLORS: dict[int, str] = {
     3: "#6bcb77",   # Friendly — green
 }
 
-# Mapa nome → valor (para filtros de UI)
+# Map name → value (for UI filters)
 ATTITUDE_BY_NAME: dict[str, int] = {
     "Hostile":  0,
     "Upset":    1,

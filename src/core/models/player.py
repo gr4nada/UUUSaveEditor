@@ -132,7 +132,7 @@ class PlayerModel:
         lo, hi = FIELD_LIMITS["dexterity"]
         self._p["dexterity"] = _validate("dexterity", int(v), lo, hi)
 
-    # — Status / Survival — (clamp silencioso, sem ValidationError)
+    # — Status / Survival — (silent clamp, no ValidationError)
     @property
     def poison(self) -> int:         return int(self._p.get("poison", 0))
     @poison.setter
@@ -184,10 +184,10 @@ class PlayerModel:
     @position.setter
     def position(self, value: dict) -> None:
         """
-        Define a posição do jogador (teleporte). Aceita um dict com
-        qualquer subconjunto de {'x','y','z'} — campos ausentes preservam
-        o valor atual. Coordenadas fora de [-2000, 2000] são clampadas
-        (mapas do jogo não excedem esse range).
+        Sets the player's position (teleport). Accepts a dict with
+        any subset of {'x','y','z'} — missing fields preserve the
+        current value. Coordinates outside [-2000, 2000] are clamped
+        (game maps don't exceed this range).
         """
         current = self.position
         merged = {**current, **{k: v for k, v in value.items() if k in ("x", "y", "z")}}
@@ -221,7 +221,7 @@ class PlayerModel:
 
     @property
     def sapling_planted_position(self) -> dict:
-        """Posição {'x','y','z'} onde o sapling foi plantado."""
+        """Position {'x','y','z'} where the sapling was planted."""
         pos = self._p.get("saplingPlantedPosition", {})
         return {"x": float(pos.get("x", 0.0)),
                 "y": float(pos.get("y", 0.0)),

@@ -81,40 +81,40 @@ class SaveGame:
 
     def add_map_note(self, page: int, note: dict) -> bool:
         """
-        Adiciona uma anotação à página `page`. `note` é armazenado como veio
-        (ex: {"x": 10, "y": 20, "text": "Tesouro aqui"}). Retorna False se a
-        página não existir.
+        Adds an annotation to page `page`. `note` is stored as provided
+        (e.g.: {"x": 10, "y": 20, "text": "Treasure here"}). Returns False if page
+        doesn't exist.
         """
         pages = self._raw.get("mapData", {}).get("pages", [])
         if not (0 <= page < len(pages)):
-            logger.warning("add_map_note: página %d fora do range (%d páginas)", page, len(pages))
+            logger.warning("add_map_note: page %d out of range (%d pages)", page, len(pages))
             return False
         pages[page].setdefault("notes", []).append(dict(note))
         return True
 
     def update_map_note(self, page: int, index: int, note: dict) -> bool:
         """
-        Substitui a anotação `index` da página `page` por `note`.
-        Retorna False se página ou índice forem inválidos.
+        Replaces annotation `index` on page `page` with `note`.
+        Returns False if page or index are invalid.
         """
         pages = self._raw.get("mapData", {}).get("pages", [])
         if not (0 <= page < len(pages)):
             return False
         notes = pages[page].setdefault("notes", [])
         if not (0 <= index < len(notes)):
-            logger.warning("update_map_note: índice %d fora do range (%d notas)", index, len(notes))
+            logger.warning("update_map_note: index %d out of range (%d notes)", index, len(notes))
             return False
         notes[index] = dict(note)
         return True
 
     def delete_map_note(self, page: int, index: int) -> bool:
-        """Remove a anotação `index` da página `page`. Retorna False se inválido."""
+        """Removes annotation `index` from page `page`. Returns False if invalid."""
         pages = self._raw.get("mapData", {}).get("pages", [])
         if not (0 <= page < len(pages)):
             return False
         notes = pages[page].setdefault("notes", [])
         if not (0 <= index < len(notes)):
-            logger.warning("delete_map_note: índice %d fora do range (%d notas)", index, len(notes))
+            logger.warning("delete_map_note: index %d out of range (%d notes)", index, len(notes))
             return False
         notes.pop(index)
         return True
@@ -125,7 +125,7 @@ class SaveGame:
 
     @property
     def dungeon_level(self) -> int:
-        """Nível de masmorra atual do jogador (currentLevel)."""
+        """Current player dungeon level (currentLevel)."""
         return int(self._raw.get("currentLevel", 0))
 
     # — Main Inventory —

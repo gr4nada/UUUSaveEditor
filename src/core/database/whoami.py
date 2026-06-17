@@ -1,16 +1,16 @@
 # src/core/database/whoami.py
 """
-Registro de identidade de NPCs (whoami → nome).
+NPC identity registry (whoami → name).
 
-Fonte única de verdade para EWhoAmI — antes em src/core/enums.py.
-Resolve:
-    whoami_id (int) → nome legível do NPC
+Single source of truth for EWhoAmI — previously in src/core/enums.py.
+Resolves:
+    whoami_id (int) → readable NPC name
 """
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Mapeamento whoami_id → nome do NPC
-# Extraído da DLL do jogo (Origin Systems / Looking Glass Studios).
+# whoami_id → NPC name mapping
+# Extracted from game DLL (Origin Systems / Looking Glass Studios).
 # ---------------------------------------------------------------------------
 
 _WHOAMI_NAMES: dict[int, str] = {
