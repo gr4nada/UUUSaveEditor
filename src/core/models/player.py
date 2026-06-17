@@ -175,7 +175,7 @@ class PlayerModel:
 
     @property
     def position(self) -> dict:
-        """Posição do jogador no mundo: {'x': float, 'y': float, 'z': float}."""
+        """Player position in the world: {'x': float, 'y': float, 'z': float}."""
         pos = self._p.get("position", {})
         return {"x": float(pos.get("x", 0.0)),
                 "y": float(pos.get("y", 0.0)),
@@ -229,7 +229,7 @@ class PlayerModel:
 
     @sapling_planted_position.setter
     def sapling_planted_position(self, value: dict) -> None:
-        """Mesma semântica de `position`: merge parcial + clamp em world_position."""
+        """Same semantics as `position`: partial merge + clamp to world_position."""
         current = self.sapling_planted_position
         merged = {**current, **{k: v for k, v in value.items() if k in ("x", "y", "z")}}
         lo, hi = FIELD_LIMITS["world_position"]
@@ -250,7 +250,7 @@ class PlayerModel:
 
     @property
     def moonstone_dropped_position(self) -> dict:
-        """Posição {'x','y','z'} onde a moonstone foi derrubada."""
+        """Position {'x','y','z'} where the moonstone was dropped."""
         pos = self._p.get("moonstoneDroppedPosition", {})
         return {"x": float(pos.get("x", 0.0)),
                 "y": float(pos.get("y", 0.0)),
@@ -277,10 +277,10 @@ class PlayerModel:
     @property
     def map_tiles_revealed(self) -> int:
         """
-        Contagem de tiles do mapa revelados (fog of war). Apenas leitura
-        — é derivado da matriz de tiles em mapData (mappedRLE), não um
-        contador independente que possa ser editado de forma segura sem
-        recalcular a matriz correspondente.
+        Count of map tiles revealed (fog of war). Read-only
+        — it is derived from the tile matrix in mapData (mappedRLE), not an
+        independent counter that can be safely edited without
+        recalculating the corresponding matrix.
         """
         return int(self._p.get("mapTilesRevealed", 0))
 
@@ -303,17 +303,17 @@ class PlayerModel:
         lo, hi = FIELD_LIMITS["talismans"]
         self._p["talismansDestroyed"] = _validate("talismans_destroyed", int(v), lo, hi)
 
-    # — Progressão —
+    # — Progression —
     @property
     def dreams_remaining(self) -> list:  return list(self._p.get("dreamsRemaining", []))
 
     @dreams_remaining.setter
     def dreams_remaining(self, values: list[int]) -> None:
         """
-        Define dreamsRemaining (lista de 6 contadores de sonhos restantes
-        por talismã). Cada valor é clampado em FIELD_LIMITS["dream_count"].
-        Apenas os índices presentes em `values` são sobrescritos; o
-        tamanho da lista original é preservado.
+        Sets dreamsRemaining (list of 6 dream counters remaining
+        per talisman). Each value is clamped to FIELD_LIMITS["dream_count"].
+        Only indexes present in `values` are overwritten; the
+        original list size is preserved.
         """
         lo, hi = FIELD_LIMITS["dream_count"]
         current = list(self._p.get("dreamsRemaining", []))
@@ -332,13 +332,13 @@ class PlayerModel:
     @global_vars.setter
     def global_vars(self, values: dict[int, int]) -> None:
         """
-        Atualiza globalVars[64] (private global variables — ver formato
-        bglobals.dat) a partir de um dict {índice: valor}.
+        Updates globalVars[64] (private global variables — see format
+        bglobals.dat) from a dict {index: value}.
 
-        Cada slot é um Int16 do formato original; valores são clampados em
-        FIELD_LIMITS["global_var"] = (-32768, 32767). Índices fora do range
-        atual de globalVars são ignorados (a lista nunca é redimensionada —
-        seu tamanho é definido por babglobs.dat e não deve mudar).
+        Each slot is an Int16 from original format; values are clamped to
+        FIELD_LIMITS["global_var"] = (-32768, 32767). Indexes out of current
+        globalVars range are ignored (list is never resized —
+        its size is defined by bglobals.dat and must not change).
         """
         lo, hi = FIELD_LIMITS["global_var"]
         gv = list(self._p.get("globalVars", []))
@@ -347,7 +347,7 @@ class PlayerModel:
             if 0 <= idx < len(gv):
                 gv[idx] = _clamp(int(val), lo, hi)
             else:
-                logger.warning("global_vars: índice %d fora do range (0-%d), ignorado", idx, len(gv) - 1)
+                logger.warning("global_vars: index %d out of range (0-%d), ignored", idx, len(gv) - 1)
         self._p["globalVars"] = gv
 
     def get_global_var(self, index: int) -> int:
@@ -386,17 +386,17 @@ class PlayerModel:
     @quest_flags.setter
     def quest_flags(self, flags_by_name: dict[str, int | bool]) -> None:
         """
-        Reescreve apenas os IDs declarados em QUEST_FLAGS dentro de questFlags,
-        a partir de um dict {flag_name: int | bool}. Expande a lista com 0 se
-        necessário; IDs fora do conhecimento do editor são preservados.
+        Rewrites only the IDs declared in QUEST_FLAGS within questFlags,
+        from a dict {flag_name: int | bool}. Expands list with 0 if
+        needed; IDs outside editor's knowledge are preserved.
 
-        Aceita tanto bool (compatibilidade com a UI antiga, onde True/False
-        mapeiam para 1/0) quanto int (Sprint 13 — Quest Intelligence, onde
-        o valor codifica um estado narrativo de 0..N). Valores negativos são
-        clampados para 0; o limite superior é validado contra
-        quest_states.max_known_state() apenas como referência — valores
-        maiores são preservados (podem ser estados legítimos do jogo ainda
-        não documentados), apenas registrados em log.
+        Accepts both bool (compatibility with old UI, where True/False
+        map to 1/0) and int (Sprint 13 — Quest Intelligence, where
+        the value encodes a narrative state from 0..N). Negative values are
+        clamped to 0; upper limit is validated against
+        quest_states.max_known_state() only as reference — higher values
+        are preserved (may be legitimate game states still
+        undocumented), only logged.
         """
         from src.core.database.quest_states import max_known_state
         import logging
@@ -404,28 +404,28 @@ class PlayerModel:
 
         qlist = list(self._p.get("questFlags", []))
         max_id = max(q["id"] for q in QUEST_FLAGS)
-        # Expande com False (não 0) para preservar `is True`/`is False` em
-        # testes legados que comparam identidade de bool nos slots
-        # recém-criados — bool é subclasse de int, então 0/1 funcionam
-        # igual para qualquer uso numérico, mas `qlist[i] is False` só é
-        # verdadeiro se o valor expandido for de fato o singleton bool.
+        # Expand with False (not 0) to preserve `is True`/`is False` in
+        # legacy tests that compare bool identity on newly-created slots
+        # — bool is subclass of int, so 0/1 work the same for any numeric use,
+        # but `qlist[i] is False` is only true if the expanded value is
+        # actually the bool singleton.
         while len(qlist) <= max_id:
             qlist.append(False)
         for q in QUEST_FLAGS:
             if q["flag"] in flags_by_name:
                 raw = flags_by_name[q["flag"]]
                 if isinstance(raw, bool):
-                    # Compatibilidade com a UI antiga / testes existentes:
-                    # bool é persistido como bool (True/False), não como
-                    # int, para preservar `is True`/`is False`.
+                    # Compatibility with old UI / existing tests:
+                    # bool is persisted as bool (True/False), not as
+                    # int, to preserve `is True`/`is False`.
                     qlist[q["id"]] = raw
                     continue
                 value = max(0, int(raw))
                 known_max = max_known_state(q["flag"])
                 if value > known_max:
                     logger.info(
-                        "questFlags[%s] = %d excede o maior estado documentado "
-                        "(%d) — valor preservado sem alteração.",
+                        "questFlags[%s] = %d exceeds largest documented state "
+                        "(%d) — value preserved unchanged.",
                         q["flag"], value, known_max,
                     )
                 qlist[q["id"]] = value
@@ -433,10 +433,10 @@ class PlayerModel:
 
     def get_quest_flags_by_name(self) -> dict[str, bool]:
         """
-        Retorna {flag_name: bool} para todos os QUEST_FLAGS conhecidos.
+        Returns {flag_name: bool} for all known QUEST_FLAGS.
 
-        Mantido para compatibilidade com código existente que só precisa
-        saber se a flag está "ativa" (valor != 0), sem distinguir entre
+        Kept for compatibility with existing code that only needs
+        to know if the flag is "active" (value != 0), without distinguishing
         estados narrativos. Para o valor inteiro completo, use
         get_quest_states_by_name().
         """
