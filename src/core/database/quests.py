@@ -1,16 +1,16 @@
 # src/core/database/quests.py
 """
-Enciclopédia de quests, feitiços e runas do jogo.
+Game quest, spell, and rune encyclopedia.
 
-Fonte única de verdade para:
-  - QUEST_FLAGS     — flags de quest conhecidas pelo editor
-  - SPELL_TABLE     — tabela completa de feitiços (círculo, runas)
-  - SPELL_DATABASE  — lista simplificada para buscas/filtros
-  - RUNES_LIST      — lista das 24 runas do jogo
+Single source of truth for:
+  - QUEST_FLAGS     — quest flags known to the editor
+  - SPELL_TABLE     — complete spell table (circle, runes)
+  - SPELL_DATABASE  — simplified list for searches/filters
+  - RUNES_LIST      — list of 24 game runes
 
-Anteriormente em:
+Previously in:
   - src/gui/constants.py (QUEST_FLAGS, SPELL_DATABASE, SPELL_TABLE, RUNES_LIST)
-  - src/core/save_controller.py (importava QUEST_FLAGS de gui.constants)
+  - src/core/save_controller.py (imported QUEST_FLAGS from gui.constants)
 """
 from __future__ import annotations
 
@@ -36,19 +36,19 @@ QUEST_FLAGS: list[dict] = [
     {"id": 37, "flag": "Dreams",              "floor": "Global", "desc": "Experienced prophetic dream visions from the Ghost"},
 ]
 
-# Índice por flag name para lookup O(1)
+# Index by flag name for O(1) lookup
 _QUEST_BY_FLAG: dict[str, dict] = {q["flag"]: q for q in QUEST_FLAGS}
-# ID máximo de flag — usado em save/load para dimensionar a lista
+# Maximum flag ID — used in save/load to dimension the list
 QUEST_MAX_ID: int = max(q["id"] for q in QUEST_FLAGS)
 
 
 def quest_by_flag(flag_name: str) -> dict | None:
-    """Retorna o registro de uma flag pelo nome, ou None."""
+    """Returns a quest record by flag name, or None."""
     return _QUEST_BY_FLAG.get(flag_name)
 
 
 # ---------------------------------------------------------------------------
-# Runas
+# Runes
 # ---------------------------------------------------------------------------
 
 RUNES_LIST: list[str] = [
@@ -59,7 +59,7 @@ RUNES_LIST: list[str] = [
 
 
 # ---------------------------------------------------------------------------
-# Tabela completa de feitiços (círculo + runas)
+# Complete spell table (circle + runes)
 # ---------------------------------------------------------------------------
 
 SPELL_TABLE: dict[int, dict] = {
@@ -117,7 +117,7 @@ SPELL_TABLE: dict[int, dict] = {
     52: {"circle": 0, "name": "Mana Boost",         "runes": []},
 }
 
-# Lista simplificada para uso em Listbox e filtros de busca
+# Simplified list for use in Listbox and search filters
 SPELL_DATABASE: list[dict] = [
     {"name": s["name"], "rune": "".join(r[0] for r in s["runes"])}
     for s in SPELL_TABLE.values()
@@ -125,11 +125,11 @@ SPELL_DATABASE: list[dict] = [
 
 
 def spell_name(spell_id: int) -> str:
-    """int → nome do feitiço, ou 'Spell#N'."""
+    """int → spell name, or 'Spell#N'."""
     entry = SPELL_TABLE.get(spell_id)
     return entry["name"] if entry else f"Spell#{spell_id}"
 
 
 def spells_by_circle(circle: int) -> list[dict]:
-    """Retorna todos os feitiços de um círculo específico."""
+    """Returns all spells in a specific circle."""
     return [{"id": sid, **s} for sid, s in SPELL_TABLE.items() if s["circle"] == circle]

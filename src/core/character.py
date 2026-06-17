@@ -39,9 +39,9 @@ def get_character_summary(raw_save_data: dict) -> dict:
     return {"attributes": attributes, "skills": skills_map}
 
 
-# Mapa entre a chave raw do save (usada em _NUMERIC_ATTRIBUTES / updated_attributes)
-# e o nome do atributo Python correspondente em PlayerModel.
-# Usado por update_character() para delegar a validação aos setters do model.
+# Mapping between raw save key (used in _NUMERIC_ATTRIBUTES / updated_attributes)
+# and corresponding Python attribute name in PlayerModel.
+# Used by update_character() to delegate validation to model setters.
 _RAW_TO_MODEL_ATTR: dict[str, str] = {
     "charLevel":   "level",
     "xp":          "xp",
@@ -68,14 +68,14 @@ def update_character(raw_save_data: dict, updated_attributes: dict, updated_skil
     Raises KeyError if 'playerData' is completely missing — persisting data onto a broken block 
     creates a partial tracking structure incompatible with the authoritative Unity deserializer.
 
-    Validação de ranges:
-      Cada campo numérico é aplicado via um setter validado de PlayerModel
-      (src.core.save_model), que levanta ValidationError (subclasse de
-      ValueError) se o valor estiver fora dos limites definidos em
-      FIELD_LIMITS — exatamente o mesmo padrão já usado por GameObject.hp
-      e pelos critters do world_parser. Campos de status (poison, hunger,
-      fatigue, drunkenness) são clampados silenciosamente em vez de
-      levantar exceção, pois valores extremos são válidos em edição.
+    Validating ranges:
+      Each numeric field is applied via a validated setter from PlayerModel
+      (src.core.save_model), which raises ValidationError (subclass of
+      ValueError) if the value is outside the limits defined in
+      FIELD_LIMITS — exactly the same pattern already used by GameObject.hp
+      and by world_parser critters. Status fields (poison, hunger,
+      fatigue, drunkenness) are silently clamped instead of raising
+      exceptions, since extreme values are valid in editing.
 
     Functional sanitization bounds for invalid parameters:
       - Numeric text string ("30") -> Automatically coerced into primitive int format.

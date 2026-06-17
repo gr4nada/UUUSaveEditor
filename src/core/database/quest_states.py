@@ -1,215 +1,214 @@
 # src/core/database/quest_states.py
 """
-Quest Intelligence (Sprint 13) — estados narrativos nomeados para quest flags.
+Quest Intelligence (Sprint 13) — narrative states for quest flags.
 
-Hoje QuestFlags[i] é tratado como bool (0/1) pela GUI, mas o array
-subjacente já armazena inteiros (`questFlags: list[int]`). Vários flags do
-jogo na verdade codificam progressão de várias etapas dentro do mesmo
-inteiro — esta tabela documenta, flag a flag, o significado de cada valor
-inteiro observável, baseado em engenharia reversa dos scripts de conversa
-(.cnv) e em pesquisa da comunidade sobre Ultima Underworld 2.
+Today QuestFlags[i] is treated as bool (0/1) by GUI, but the underlying
+array already stores integers (`questFlags: list[int]`). Multiple quest flags
+actually encode multi-step progression within the same integer — this table
+documents, flag by flag, the meaning of each observable integer value, based
+on reverse engineering of conversation scripts (.cnv) and community research
+on Ultima Underworld 2.
 
-Formato:
+Format:
     QUEST_STATES: dict[str, dict[int, dict]] = {
         "<flag_name>": {
-            <int_value>: {"label": "<nome curto>", "desc": "<descrição>"},
+            <int_value>: {"label": "<short name>", "desc": "<description>"},
             ...
         },
         ...
     }
 
-Flags ausentes deste mapeamento são tratados como binários simples
-(0 = Inativo / 1+ = Ativo) pela função `describe_state()` abaixo — não é
-necessário listar todo QUEST_FLAGS aqui, apenas os que têm progressão
-narrativa de 3+ estados vale a pena documentar.
+Flags missing from this mapping are treated as simple binary (0 = Inactive / 1+ = Active)
+by the `describe_state()` function below — it is not necessary to list all
+QUEST_FLAGS here, only those with 3+ narrative progression states are worth
+documenting.
 
-A UI (skills_quests_tab) usa `quest_state_options(flag_name)` para popular
-o seletor de estado e `describe_state(flag_name, value)` para a coluna
-"Descrição do Estado" do Treeview.
+The UI (skills_quests_tab) uses `quest_state_options(flag_name)` to populate
+the state selector and `describe_state(flag_name, value)` for the "State Description"
+column of the Treeview.
 """
 from __future__ import annotations
 
 
 # ---------------------------------------------------------------------------
-# Estados narrativos por flag
+# Narrative states by flag
 #
-# Apenas flags com progressão de 3+ etapas precisam de entrada aqui.
-# Flags binários (MetDrOwl, GazerKilled, RodrickKilled, CanSpeakToKetcheval,
-# BefriendedLizardmen, ShouldFindTalismans, ConvoWithMurgo) usam o fallback
-# genérico de describe_state() e não precisam de entrada.
+# Only flags with 3+ step progression need an entry here.
+# Binary flags (MetDrOwl, GazerKilled, RodrickKilled, CanSpeakToKetcheval,
+# BefriendedLizardmen, ShouldFindTalismans, ConvoWithMurgo) use the generic
+# fallback of describe_state() and don't need an entry.
 # ---------------------------------------------------------------------------
 
 QUEST_STATES: dict[str, dict[int, dict]] = {
 
-    # --- MurgoFreed — arco completo de Murgo, do cativeiro à recompensa ---
+    # --- MurgoFreed — complete Murgo arc, from captivity to reward ---
     "MurgoFreed": {
-        0: {"label": "Preso",
-            "desc": "Murgo ainda está preso nas celas dos Dwarves no Nível 2; "
-                    "o Avatar ainda não chegou até ele."},
-        1: {"label": "Liberto",
-            "desc": "Murgo foi libertado das celas. Ele agora vagueia livre "
-                    "pelo Nível 2 e pode ser encontrado para conversas adicionais."},
-        2: {"label": "Recompensa Entregue",
-            "desc": "Murgo recompensou o Avatar (item ou informação) após a "
-                    "libertação — fecha o arco pessoal dele."},
+        0: {"label": "Imprisoned",
+            "desc": "Murgo is still imprisoned in the Dwarf cells on Level 2; "
+                    "the Avatar has not reached him yet."},
+        1: {"label": "Freed",
+            "desc": "Murgo was freed from the cells. He now roams free "
+                    "on Level 2 and can be found for additional conversations."},
+        2: {"label": "Reward Delivered",
+            "desc": "Murgo rewarded the Avatar (item or information) after "
+                    "liberation — closes his personal arc."},
     },
 
-    # --- TalkedToHagbard — introdução aos refugiados humanos ---
+    # --- TalkedToHagbard — introduction to human refugees ---
     "TalkedToHagbard": {
-        0: {"label": "Não Encontrado",
-            "desc": "O Avatar ainda não localizou Hagbard entre os refugiados "
-                    "humanos no Nível 3."},
-        1: {"label": "Apresentação Feita",
-            "desc": "Hagbard se apresentou e explicou a situação dos refugiados "
-                    "humanos, abrindo as quests da facção."},
-        2: {"label": "Confiança Estabelecida",
-            "desc": "Hagbard passou a confiar no Avatar e revela informações "
-                    "adicionais sobre os planos de Tyball."},
+        0: {"label": "Not Found",
+            "desc": "The Avatar has not yet located Hagbard among the human "
+                    "refugees on Level 3."},
+        1: {"label": "Introduction Made",
+            "desc": "Hagbard introduced himself and explained the refugees' "
+                    "situation, opening the faction quests."},
+        2: {"label": "Trust Established",
+            "desc": "Hagbard began to trust the Avatar and reveals additional "
+                    "information about Tyball's plans."},
     },
 
-    # --- FindGurstang — busca pelo dwarf desaparecido ---
+    # --- FindGurstang — search for missing dwarf ---
     "FindGurstang": {
-        0: {"label": "Busca Não Iniciada",
-            "desc": "O Avatar ainda não recebeu a missão de procurar Gurstang."},
-        1: {"label": "Busca Ativa",
-            "desc": "O Avatar foi incumbido de encontrar o dwarf desaparecido "
-                    "Gurstang e está procurando por ele no Nível 2."},
-        2: {"label": "Gurstang Encontrado (Vivo)",
-            "desc": "Gurstang foi localizado vivo; sua situação pode ser "
-                    "reportada de volta a quem pediu a busca."},
-        3: {"label": "Gurstang Encontrado (Morto)",
-            "desc": "Apenas o corpo ou pertences de Gurstang foram encontrados — "
-                    "a busca terminou em tragédia."},
+        0: {"label": "Search Not Started",
+            "desc": "The Avatar has not yet received the mission to search for Gurstang."},
+        1: {"label": "Search Active",
+            "desc": "The Avatar was tasked with finding the missing dwarf "
+                    "Gurstang and is searching for him on Level 2."},
+        2: {"label": "Gurstang Found (Alive)",
+            "desc": "Gurstang was found alive; his status can be "
+                    "reported back to whoever requested the search."},
+        3: {"label": "Gurstang Found (Dead)",
+            "desc": "Only Gurstang's body or belongings were found — "
+                    "the search ended in tragedy."},
     },
 
-    # --- WhereIsZak — localizar o mercador cego ---
+    # --- WhereIsZak — locate the blind merchant ---
     "WhereIsZak": {
-        0: {"label": "Desconhecido",
-            "desc": "O paradeiro de Zak, o mercador cego, ainda não foi "
-                    "perguntado ou descoberto."},
-        1: {"label": "Pista Obtida",
-            "desc": "O Avatar obteve uma pista sobre onde Zak pode estar, "
-                    "mas ainda não o encontrou pessoalmente."},
-        2: {"label": "Zak Localizado",
-            "desc": "Zak foi encontrado pessoalmente pelo Avatar no Nível 2."},
+        0: {"label": "Unknown",
+            "desc": "The whereabouts of Zak, the blind merchant, have not yet "
+                    "been asked or discovered."},
+        1: {"label": "Clue Obtained",
+            "desc": "The Avatar obtained a clue about where Zak might be, "
+                    "but has not found him in person yet."},
+        2: {"label": "Zak Located",
+            "desc": "Zak was found in person by the Avatar on Level 2."},
     },
 
-    # --- BronusBookGoBoom — sabotagem do livro de Bronus ---
+    # --- BronusBookGoBoom — sabotage of Bronus's book ---
     "BronusBookGoBoom": {
-        0: {"label": "Não Iniciado",
-            "desc": "O Avatar ainda não recebeu o livro armadilhado ou a "
-                    "missão de entrega para Bronus."},
-        1: {"label": "Livro em Posse do Avatar",
-            "desc": "O Avatar está carregando o livro destinado a Bronus, "
-                    "mas ainda não o entregou."},
-        2: {"label": "Entregue / Detonado",
-            "desc": "O livro foi entregue a Bronus e o evento de sabotagem "
-                    "(explosão) foi disparado, completando a quest."},
+        0: {"label": "Not Started",
+            "desc": "The Avatar has not yet received the trapped book or "
+                    "delivery mission for Bronus."},
+        1: {"label": "Book in Avatar's Possession",
+            "desc": "The Avatar is carrying the book intended for Bronus, "
+                    "but has not yet delivered it."},
+        2: {"label": "Delivered / Detonated",
+            "desc": "The book was delivered to Bronus and the sabotage event "
+                    "(explosion) was triggered, completing the quest."},
     },
 
-    # --- KnightOfCrux — cerimônia da Ordem da Crux Gamata ---
+    # --- KnightOfCrux — Order of the Crux Gamata ceremony ---
     "KnightOfCrux": {
-        0: {"label": "Não Membro",
-            "desc": "O Avatar ainda não foi convidado ou iniciado na Ordem "
-                    "da Crux Gamata no Nível 5."},
-        1: {"label": "Provas em Andamento",
-            "desc": "O Avatar foi aceito como candidato e está cumprindo as "
-                    "provas exigidas pela Ordem."},
-        2: {"label": "Cavaleiro da Crux Gamata",
-            "desc": "O Avatar completou a cerimônia e foi nomeado Cavaleiro "
-                    "da Ordem, ganhando reconhecimento e possivelmente "
-                    "acesso a áreas restritas do Nível 5."},
+        0: {"label": "Not a Member",
+            "desc": "The Avatar has not yet been invited or initiated into "
+                    "the Order of the Crux Gamata on Level 5."},
+        1: {"label": "Trials in Progress",
+            "desc": "The Avatar was accepted as a candidate and is fulfilling "
+                    "the trials required by the Order."},
+        2: {"label": "Knight of the Crux Gamata",
+            "desc": "The Avatar completed the ceremony and was made a Knight "
+                    "of the Order, gaining recognition and possibly "
+                    "access to restricted areas of Level 5."},
     },
 
-    # --- TalismansLeft — marcador narrativo de progresso da Grande Quest ---
-    # Nota: NÃO confundir com playerData.talismansCollected /
-    # talismansDestroyed (Sprint 10, aba Story) — este flag é um marcador
-    # de *narrativa* (quais diálogos/eventos já dispararam por causa do
-    # progresso), não o contador numérico real de talismãs.
+    # --- TalismansLeft — narrative progress marker for Grand Quest ---
+    # Note: Do NOT confuse with playerData.talismansCollected /
+    # talismansDestroyed (Sprint 10, Story tab) — this flag is a *narrative*
+    # marker (which dialogues/events have triggered because of progress),
+    # not the actual numerical counter of talismans.
     "TalismansLeft": {
-        0: {"label": "Quest Não Iniciada",
-            "desc": "A Grande Quest dos 8 Talismãs ainda não foi formalmente "
-                    "explicada ao Avatar por nenhum NPC."},
-        1: {"label": "Quest Conhecida",
-            "desc": "O Avatar sabe da existência da Grande Quest, mas ainda "
-                    "não progrediu o suficiente para os NPCs comentarem sobre "
-                    "o progresso."},
-        2: {"label": "Progresso Reconhecido",
-            "desc": "NPCs relevantes já comentam sobre o progresso do Avatar "
-                    "na coleta de Talismãs — diálogos de progresso médio "
-                    "foram desbloqueados."},
-        3: {"label": "Quase Completo",
-            "desc": "Diálogos de fase final sobre os Talismãs foram "
-                    "desbloqueados — a maioria já foi recuperada."},
+        0: {"label": "Quest Not Started",
+            "desc": "The Grand Quest of the 8 Talismans has not yet been formally "
+                    "explained to the Avatar by any NPC."},
+        1: {"label": "Quest Known",
+            "desc": "The Avatar knows of the Grand Quest's existence, but has not "
+                    "progressed enough for NPCs to comment on "
+                    "progress yet."},
+        2: {"label": "Progress Recognized",
+            "desc": "Relevant NPCs now comment on the Avatar's progress in "
+                    "collecting Talismans — mid-progress dialogue "
+                    "has been unlocked."},
+        3: {"label": "Nearly Complete",
+            "desc": "End-phase dialogues about the Talismans have been "
+                    "unlocked — most have already been recovered."},
     },
 
-    # --- Dreams — progressão dos sonhos proféticos do Fantasma ---
-    # Nota: relacionado mas distinto de playerData.dreamsRemaining[6]
-    # (Sprint 10) — este flag marca *quais sonhos narrativos* já ocorreram,
-    # não a contagem regressiva por talismã.
+    # --- Dreams — progression of prophetic dreams from Ghost ---
+    # Note: Related but distinct from playerData.dreamsRemaining[6]
+    # (Sprint 10) — this flag marks *which narrative dreams* have occurred,
+    # not the countdown per talisman.
     "Dreams": {
-        0: {"label": "Nenhum Sonho",
-            "desc": "O Avatar ainda não teve nenhuma visão profética do "
-                    "Fantasma."},
-        1: {"label": "Primeiro Sonho",
-            "desc": "O Avatar teve a primeira visão — geralmente um aviso "
-                    "vago sobre o perigo representado por Tyball/Cabirus."},
-        2: {"label": "Sonhos Recorrentes",
-            "desc": "Visões adicionais ocorreram, revelando gradualmente mais "
-                    "do plano do antagonista e da localização dos Talismãs."},
-        3: {"label": "Visão Final",
-            "desc": "O Avatar recebeu a visão culminante, geralmente "
-                    "associada ao clímax da história principal."},
+        0: {"label": "No Dream",
+            "desc": "The Avatar has not yet had any prophetic vision from the "
+                    "Ghost."},
+        1: {"label": "First Dream",
+            "desc": "The Avatar had the first vision — typically a vague "
+                    "warning about the danger posed by Tyball/Cabirus."},
+        2: {"label": "Recurring Dreams",
+            "desc": "Additional visions have occurred, gradually revealing more "
+                    "of the antagonist's plan and Talisman locations."},
+        3: {"label": "Final Vision",
+            "desc": "The Avatar received the culminating vision, typically "
+                    "associated with the climax of the main story."},
     },
 }
 
 
 # ---------------------------------------------------------------------------
-# API pública
+# Public API
 # ---------------------------------------------------------------------------
 
 def quest_state_options(flag_name: str) -> dict[int, dict]:
     """
-    Retorna {valor_inteiro: {"label", "desc"}} para o flag.
+    Returns {integer_value: {"label", "desc"}} for the flag.
 
-    Se o flag não tiver entrada em QUEST_STATES, retorna o fallback binário
-    genérico {0: Inativo, 1: Ativo} — adequado para os flags simples
+    If the flag does not have an entry in QUEST_STATES, returns the generic
+    binary fallback {0: Inactive, 1: Active} — suitable for simple flags
     (MetDrOwl, GazerKilled, RodrickKilled, etc.).
     """
     if flag_name in QUEST_STATES:
         return QUEST_STATES[flag_name]
     return {
-        0: {"label": "Inativo", "desc": "Esta flag ainda não foi ativada."},
-        1: {"label": "Ativo",   "desc": "Esta flag foi ativada (concluída/atingida)."},
+        0: {"label": "Inactive", "desc": "This flag has not been activated yet."},
+        1: {"label": "Active",   "desc": "This flag has been activated (completed/reached)."},
     }
 
 
 def describe_state(flag_name: str, value: int) -> dict:
     """
-    Retorna {"label", "desc"} para o valor atual de `flag_name`.
+    Returns {"label", "desc"} for the current value of `flag_name`.
 
-    Valores fora do mapa conhecido (ex: um inteiro maior que o maior estado
-    documentado, vindo de um save editado externamente) caem num fallback
-    descritivo que ainda mostra o valor bruto, em vez de quebrar a UI.
+    Values outside the known map (e.g., an integer larger than the largest
+    documented state, coming from an externally edited save) fall back to a
+    descriptive message that still shows the raw value, instead of breaking the UI.
     """
     options = quest_state_options(flag_name)
     if value in options:
         return options[value]
     max_known = max(options.keys())
     return {
-        "label": f"Desconhecido ({value})",
-        "desc": f"Valor {value} não documentado para esta flag "
-                f"(estados conhecidos: 0–{max_known}). Pode ser um estado "
-                f"válido do jogo ainda não mapeado, ou dado de um save "
-                f"editado externamente.",
+        "label": f"Unknown ({value})",
+        "desc": f"Value {value} not documented for this flag "
+                f"(known states: 0–{max_known}). This may be a valid game state "
+                f"not yet mapped, or data from an externally edited save.",
     }
 
 
 def max_known_state(flag_name: str) -> int:
-    """Retorna o maior valor de estado documentado para `flag_name`."""
+    """Returns the highest documented state value for `flag_name`."""
     return max(quest_state_options(flag_name).keys())
 
 
 def is_multi_state(flag_name: str) -> bool:
-    """True se `flag_name` tem progressão narrativa de 3+ estados documentada."""
+    """True if `flag_name` has 3+ documented narrative progression states."""
     return flag_name in QUEST_STATES and len(QUEST_STATES[flag_name]) > 2

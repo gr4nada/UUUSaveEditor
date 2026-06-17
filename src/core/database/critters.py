@@ -1,17 +1,17 @@
 # src/core/database/critters.py
 """
-Enciclopédia de critters / NPCs do jogo.
+Critter / NPC encyclopedia of the game.
 
-Fonte única de verdade para:
-  - estados de IA (ECritterState)  → state_label(id)
-  - objetivos de IA (ECritterGoal) → goal_label(id)
-  - atitudes (ECritterAttitude)    → attitude_label(id), ATTITUDE_COLORS
-  - tipo de movimento              → movement_label(id)
+Single source of truth for:
+  - AI states (ECritterState)     → state_label(id)
+  - AI objectives (ECritterGoal)  → goal_label(id)
+  - attitudes (ECritterAttitude)  → attitude_label(id), ATTITUDE_COLORS
+  - movement type                 → movement_label(id)
 
-Anteriormente espalhado entre:
+Previously scattered across:
   - src/core/enums.py (ECritterState, ECritterGoal, ECritterAttitude, EMovementType
-                       + critter_state_label, critter_goal_label,
-                         critter_attitude_label, movement_type_label)
+                      + critter_state_label, critter_goal_label,
+                        critter_attitude_label, movement_type_label)
   - src/gui/constants.py (ATTITUDE_COLORS)
 """
 from __future__ import annotations
@@ -19,11 +19,11 @@ from enum import IntEnum
 
 
 # ---------------------------------------------------------------------------
-# Enums de comportamento de critter
+# Critter behavior enums
 # ---------------------------------------------------------------------------
 
 class ECritterState(IntEnum):
-    """Estado de execução ativo da IA do critter."""
+    """Active execution state of critter/NPC AI."""
     INITIALIZE        = 0
     ENABLE            = 1
     CROUCH            = 2
@@ -73,7 +73,7 @@ _STATE_LABELS: dict[int, str] = {
 
 
 class ECritterGoal(IntEnum):
-    """Objetivo de alto nível atribuído ao critter."""
+    """High-level objective or agenda assigned to a critter."""
     STAND_0             = 0
     GO_TO               = 1
     WANDER_2            = 2
@@ -111,7 +111,7 @@ _GOAL_LABELS: dict[int, str] = {
 
 
 class ECritterAttitude(IntEnum):
-    """Disposição moral do NPC em relação ao Avatar."""
+    """Moral disposition of the NPC toward the Avatar."""
     HOSTILE  = 0
     UPSET    = 1
     MELLOW   = 2
@@ -125,12 +125,12 @@ _ATTITUDE_LABELS: dict[int, str] = {
     3: "Friendly / Ally",
 }
 
-# Cores de UI por atitude — fonte única (antes duplicadas em constants.py e critters_tab.py)
+# UI colors by attitude — single source of truth (previously duplicated in constants.py and critters_tab.py)
 ATTITUDE_COLORS: dict[int, str] = {
-    0: "#ff6b6b",   # Hostile  — vermelho
-    1: "#ff9944",   # Upset    — laranja
-    2: "#ffd93d",   # Mellow   — amarelo
-    3: "#6bcb77",   # Friendly — verde
+    0: "#ff6b6b",   # Hostile  — red
+    1: "#ff9944",   # Upset    — orange
+    2: "#ffd93d",   # Mellow   — yellow
+    3: "#6bcb77",   # Friendly — green
 }
 
 # Mapa nome → valor (para filtros de UI)
@@ -143,7 +143,7 @@ ATTITUDE_BY_NAME: dict[str, int] = {
 
 
 class EMovementType(IntEnum):
-    """Restrições de locomoção do arquétipo da criatura."""
+    """Physics locomotion restrictions of the creature archetype."""
     TWILIGHT_ZONE = 0
     WALKING       = 1
     FLYING        = 2
@@ -162,29 +162,29 @@ _MOVEMENT_LABELS: dict[int, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# API pública — funções de resolução int → string legível
+# Public API — functions for int → readable string resolution
 # ---------------------------------------------------------------------------
 
 def state_label(state_id: int) -> str:
-    """int → label legível do estado de IA do critter."""
+    """int → readable critter AI state label."""
     return _STATE_LABELS.get(state_id, f"State {state_id}")
 
 
 def goal_label(goal_id: int) -> str:
-    """int → label legível do objetivo do critter."""
+    """int → readable critter objective label."""
     return _GOAL_LABELS.get(goal_id, f"Goal {goal_id}")
 
 
 def attitude_label(attitude_id: int) -> str:
-    """int → label legível da atitude do critter."""
+    """int → readable critter attitude label."""
     return _ATTITUDE_LABELS.get(attitude_id, f"Attitude {attitude_id}")
 
 
 def movement_label(movement_id: int) -> str:
-    """int → label legível do tipo de movimento."""
+    """int → readable movement type label."""
     return _MOVEMENT_LABELS.get(movement_id, f"Move {movement_id}")
 
 
 def attitude_color(attitude_id: int) -> str:
-    """int → cor hex da atitude (para uso na UI)."""
+    """int → hex color of attitude (for UI use)."""
     return ATTITUDE_COLORS.get(attitude_id, "#888888")

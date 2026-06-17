@@ -1,16 +1,16 @@
 # src/core/database/objects.py
 """
-Enciclopédia de objetos do jogo (itens, armaduras, armas, containers, etc.).
+Game object encyclopedia (items, armor, weapons, containers, etc.).
 
-Fonte única de verdade para:
-  - nome legível       → object_name(id)
-  - ícone unicode      → object_icon(id)
-  - categoria          → object_category(id)
-  - propriedades físicas (massa, valor) → object_props(id)
-  - dados de equipamento por slot       → EQUIPMENT_BY_SLOT
-  - filtros para o explorer             → ITEM_TYPE_GROUPS, ITEM_TYPES_SKIP
+Single source of truth for:
+  - readable name       → object_name(id)
+  - unicode icon        → object_icon(id)
+  - category            → object_category(id)
+  - physical properties (mass, value) → object_props(id)
+  - equipment data by slot            → EQUIPMENT_BY_SLOT
+  - filters for explorer              → ITEM_TYPE_GROUPS, ITEM_TYPES_SKIP
 
-Anteriormente espalhado entre:
+Previously scattered across:
   - src/core/enums.py         (EObjectType, PROP_ITENS, ITEM_TYPE_GROUPS, ITEM_TYPES_SKIP)
   - src/core/object_dictionary.py (_OBJECT_DB, lookup, resolve_name, resolve_icon)
   - src/core/inventory.py     (WIKI_ITEM_DATABASE)
@@ -18,7 +18,7 @@ Anteriormente espalhado entre:
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Banco de dados principal — objectType (int) → metadados completos
+# Main database — object type (int) → complete metadata
 # ---------------------------------------------------------------------------
 
 _DB: dict[int, dict] = {
@@ -229,7 +229,7 @@ _DB: dict[int, dict] = {
     258: {"name": "Runestone: Zu",   "category": "RuneStone", "icon": "◈",  "mass": 0.1, "value": 10},
 }
 
-# Ícone por categoria (fallback quando o tipo exato não está no DB)
+# Icon by category (fallback when exact type is not in DB)
 CATEGORY_ICONS: dict[str, str] = {
     "Weapon":    "⚔",
     "Ammo":      "·",
@@ -248,7 +248,7 @@ CATEGORY_ICONS: dict[str, str] = {
 }
 
 # ---------------------------------------------------------------------------
-# Filtros para o World Objects Explorer
+# Filters for World Objects Explorer
 # ---------------------------------------------------------------------------
 
 ITEM_TYPE_GROUPS: dict[str, set | None] = {
@@ -271,8 +271,8 @@ ITEM_TYPES_SKIP: frozenset[str] = frozenset({
 })
 
 # ---------------------------------------------------------------------------
-# Dados de equipamento por slot — usado pela dialog de equipamentos
-# (substitui WIKI_ITEM_DATABASE de inventory.py)
+# Equipment data by slot — used by equipment dialog
+# (replaces WIKI_ITEM_DATABASE from inventory.py)
 # ---------------------------------------------------------------------------
 
 EQUIPMENT_BY_SLOT: dict[str, list[dict]] = {
@@ -355,17 +355,17 @@ EQUIPMENT_BY_SLOT: dict[str, list[dict]] = {
 }
 
 # ---------------------------------------------------------------------------
-# API pública
+# Public API
 # ---------------------------------------------------------------------------
 
 def object_name(object_type: int, object_name_raw: str = "", type_name: str = "") -> str:
     """
-    Retorna o melhor nome disponível para um objeto.
+    Returns the best available name for an object.
 
-    Prioridade:
-      1. objectName do save (se não vazio)
-      2. Dicionário interno
-      3. objectTypeName do save (se não vazio)
+    Priority:
+      1. objectName from save (if not empty)
+      2. Internal dictionary
+      3. objectTypeName from save (if not empty)
       4. "Object#N"
     """
     if object_name_raw and object_name_raw.strip():
@@ -379,7 +379,7 @@ def object_name(object_type: int, object_name_raw: str = "", type_name: str = ""
 
 
 def object_icon(object_type: int, type_name: str = "") -> str:
-    """Retorna o ícone unicode para um objectType."""
+    """Returns the unicode icon for an object type."""
     entry = _DB.get(object_type)
     if entry:
         return entry["icon"]
@@ -387,15 +387,15 @@ def object_icon(object_type: int, type_name: str = "") -> str:
 
 
 def object_category(object_type: int) -> str:
-    """Retorna a categoria do objeto, ou 'Unknown'."""
+    """Returns the object category, or 'Unknown'."""
     entry = _DB.get(object_type)
     return entry["category"] if entry else "Unknown"
 
 
 def object_props(object_type: int) -> dict:
     """
-    Retorna propriedades físicas: {"mass": float, "value": int}.
-    Retorna zeros se o tipo não estiver no banco.
+    Returns physical properties: {"mass": float, "value": int}.
+    Returns zeros if type is not in database.
     """
     entry = _DB.get(object_type, {})
     return {"mass": entry.get("mass", 0.0), "value": entry.get("value", 0)}
@@ -403,8 +403,8 @@ def object_props(object_type: int) -> dict:
 
 def lookup(object_type: int) -> dict:
     """
-    Retorna o registro completo do objectType, ou fallback genérico.
-    Compatibilidade retroativa com object_dictionary.lookup().
+    Returns the complete record for object type, or generic fallback.
+    Backward compatibility with object_dictionary.lookup().
     """
     return _DB.get(object_type, {
         "name":     f"Object#{object_type}",
@@ -414,5 +414,5 @@ def lookup(object_type: int) -> dict:
 
 
 def all_categories() -> list[str]:
-    """Lista de categorias únicas no banco."""
+    """List of unique categories in database."""
     return sorted({v["category"] for v in _DB.values()})

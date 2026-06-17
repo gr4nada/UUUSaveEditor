@@ -1,5 +1,5 @@
 # src/core/models/game.py
-"""SaveGame — ponto de entrada único para acesso ao save."""
+"""SaveGame — single entry point for save access."""
 from __future__ import annotations
 import logging
 
@@ -11,21 +11,21 @@ logger = logging.getLogger("core.models.game")
 
 class SaveGame:
     """
-    Ponto de entrada único para acesso ao save.
+    Single entry point for save access.
 
-    Uso:
+    Usage:
         sg = SaveGame(raw_dict)
         sg.player.hp = 999
         sg.player.name        → "Avatar"
         sg.slot_name          → "Slot 0"
-        sg.raw                → dict original (para save_manager)
+        sg.raw                → original dict (for save_manager)
     """
 
     def __init__(self, raw: dict) -> None:
         self._raw = raw
         self.player = PlayerModel(raw.get("playerData", {}))
 
-    # — Metadados do save —
+    # — Save metadata —
     @property
     def raw(self) -> dict:           return self._raw
     @property
@@ -41,19 +41,19 @@ class SaveGame:
     @current_level.setter
     def current_level(self, v: int) -> None:
         """
-        Define o nível de masmorra atual do jogador (teleporte entre níveis).
-        Clampado em FIELD_LIMITS["dungeon_level"] = (0, 9) — os 10 níveis
-        existentes em worldObjectsByLevel.
+        Sets the player's current dungeon level (teleport between levels).
+        Clamped to FIELD_LIMITS["dungeon_level"] = (0, 9) — the 10 existing
+        levels in worldObjectsByLevel.
         """
         lo, hi = FIELD_LIMITS["dungeon_level"]
-        # Limita também ao número real de níveis presentes no save, caso
-        # worldObjectsByLevel tenha menos de 10 entradas.
+        # Also limit to actual number of levels present in save, in case
+        # worldObjectsByLevel has fewer than 10 entries.
         max_level = min(hi, len(self._raw.get("worldObjectsByLevel", [])) - 1)
         if max_level < lo:
             max_level = hi
         self._raw["currentLevel"] = _clamp(int(v), lo, max_level)
 
-    # — Blocos não-editáveis por enquanto —
+    # — Non-editable blocks for now —
     @property
     def inventory_data(self) -> dict:    return self._raw.get("inventoryData", {})
     @property
@@ -67,13 +67,13 @@ class SaveGame:
     #
     # mapData = {"pages": [{"mappedRLE": "...", "notes": [...]}]}
     #
-    # Cada "note" é um dict de forma livre (tipicamente {"x", "y", "text"}).
-    # A API abaixo trata `notes` apenas como uma lista de dicts — não impõe
-    # um schema rígido, preservando quaisquer chaves desconhecidas em notas
-    # existentes (mappedRLE nunca é tocado).
+    # Each "note" is a free-form dict (typically {"x", "y", "text"}).
+    # The API below treats `notes` only as a list of dicts — does not enforce
+    # a strict schema, preserving any unknown keys in existing notes
+    # (mappedRLE is never touched).
 
     def get_map_notes(self, page: int = 0) -> list[dict]:
-        """Retorna a lista de anotações da página `page` (cópia rasa)."""
+        """Returns list of annotations for page `page` (shallow copy)."""
         pages = self._raw.get("mapData", {}).get("pages", [])
         if not (0 <= page < len(pages)):
             return []

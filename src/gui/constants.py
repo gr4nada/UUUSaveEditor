@@ -4,101 +4,101 @@ import logging
 logger = logging.getLogger("gui.constants")
 
 # ---------------------------------------------------------------------------
-# THEME — fonte única de verdade para todas as cores da interface.
+# THEME — single source of truth for all interface colors.
 #
-# Agrupamentos semânticos:
-#   bg_*      → fundos de superfície
-#   border_*  → bordas e highlights de canvas
-#   fg_*      → texto e ícones
-#   list_*    → backgrounds de Listbox / Treeview
-#   tag_*     → foreground de tags semânticas (status, raridade, atitude)
-#   canvas_*  → elementos desenhados em tk.Canvas
+# Semantic groupings:
+#   bg_*      → surface backgrounds
+#   border_*  → canvas borders and highlights
+#   fg_*      → text and icons
+#   list_*    → Listbox / Treeview backgrounds
+#   tag_*     → semantic tag foreground (status, rarity, attitude)
+#   canvas_*  → elements drawn on tk.Canvas
 # ---------------------------------------------------------------------------
 THEME: dict[str, str] = {
-    # --- Superfícies ---
-    "bg_app":         "#252525",   # fundo principal da janela / TFrame / TLabelframe
-    "bg_deep":        "#0d0d0d",   # canvases de portrait e paper doll
-    "bg_panel":       "#111111",   # painéis de texto rico (Summary, Detail)
-    "bg_canvas":      "#2b2b2b",   # canvas de equipamentos
-    "bg_avatar_body": "#1f1f1f",   # retângulo central do avatar no canvas
-    "bg_slot_empty":  "#222222",   # slot vazio de equipamento
-    "bg_slot_filled": "#1a1a1a",   # slot preenchido de equipamento
-    "bg_slot_shadow": "#111111",   # placeholder de fundo atrás do slot
+    # --- Surfaces ---
+    "bg_app":         "#252525",   # main window / TFrame / TLabelframe background
+    "bg_deep":        "#0d0d0d",   # portrait and paper doll canvases
+    "bg_panel":       "#111111",   # rich text panels (Summary, Detail)
+    "bg_canvas":      "#2b2b2b",   # equipment canvas
+    "bg_avatar_body": "#1f1f1f",   # central avatar rectangle on canvas
+    "bg_slot_empty":  "#222222",   # empty equipment slot
+    "bg_slot_filled": "#1a1a1a",   # filled equipment slot
+    "bg_slot_shadow": "#111111",   # background placeholder behind slot
 
     # --- Listbox / Treeview ---
-    "list_bg":         "#1e1e1e",  # fundo padrão de Listbox
-    "list_bg_spells":  "#1a1a2e",  # listbox de feitiços conhecidos (tom azulado)
-    "list_bg_active":  "#1a2e1a",  # listbox de feitiços ativos (tom esverdeado)
-    "list_row_even":   "#1a1a1a",  # linhas pares do Treeview
-    "list_row_odd":    "#141414",  # linhas ímpares do Treeview
-    "list_select":     "#264f78",  # seleção de Listbox / Treeview
+    "list_bg":         "#1e1e1e",  # default Listbox background
+    "list_bg_spells":  "#1a1a2e",  # known spells listbox (bluish tone)
+    "list_bg_active":  "#1a2e1a",  # active spells listbox (greenish tone)
+    "list_row_even":   "#1a1a1a",  # even Treeview rows
+    "list_row_odd":    "#141414",  # odd Treeview rows
+    "list_select":     "#264f78",  # Listbox / Treeview selection
 
-    # --- Bordas e highlights ---
-    "border_canvas":   "#444444",  # borda do canvas de equipamentos
-    "border_subtle":   "#2a2a2a",  # highlight de canvases de portrait
-    "border_deep":     "#222222",  # highlight de canvases escuros (critters portrait)
-    "border_avatar":   "#555555",  # outline do retângulo do avatar
-    "border_placeholder": "#1e1e1e",  # outline do placeholder de portrait
+    # --- Borders and highlights ---
+    "border_canvas":   "#444444",  # equipment canvas border
+    "border_subtle":   "#2a2a2a",  # portrait canvas highlight
+    "border_deep":     "#222222",  # dark canvas highlight (critter portrait)
+    "border_avatar":   "#555555",  # avatar rectangle outline
+    "border_placeholder": "#1e1e1e",  # portrait placeholder outline
 
-    # --- Texto primário / interface ---
-    "fg_primary":      "#ffffff",  # texto em destaque (nome do personagem)
-    "fg_secondary":    "#aaaaaa",  # texto informativo (save header, info labels)
-    "fg_muted":        "#888888",  # texto secundário / hints
-    "fg_dim":          "#666666",  # texto desabilitado / itálico explicativo
-    "fg_faint":        "#555555",  # texto quase invisível (count labels, empty slots)
-    "fg_dead":         "#444444",  # texto de critters mortos / read-only hints
-    "fg_placeholder":  "#2a2a2a",  # texto de placeholder em canvases escuros
+    # --- Primary text / interface ---
+    "fg_primary":      "#ffffff",  # highlighted text (character name)
+    "fg_secondary":    "#aaaaaa",  # informational text (save header, info labels)
+    "fg_muted":        "#888888",  # secondary text / hints
+    "fg_dim":          "#666666",  # disabled text / italic explanatory
+    "fg_faint":        "#555555",  # almost invisible text (count labels, empty slots)
+    "fg_dead":         "#444444",  # dead critter text / read-only hints
+    "fg_placeholder":  "#2a2a2a",  # placeholder text on dark canvases
 
-    # --- Cores de UI temática ---
-    "fg_avatar_label": "#333333",  # texto "AVATAR" no canvas
-    "fg_slot_label":   "#aaaaaa",  # nome do slot no canvas de equipamentos
-    "fg_slot_empty":   "#555555",  # texto "Empty" nos slots
-    "fg_labelframe":   "#777777",  # label dos LabelFrames (TLabelframe.Label)
-    "fg_stat_value":   "#cccccc",  # valores de estatísticas carregados
+    # --- Thematic UI colors ---
+    "fg_avatar_label": "#333333",  # "AVATAR" text on canvas
+    "fg_slot_label":   "#aaaaaa",  # slot name on equipment canvas
+    "fg_slot_empty":   "#555555",  # "Empty" text on slots
+    "fg_labelframe":   "#777777",  # LabelFrame label (TLabelframe.Label)
+    "fg_stat_value":   "#cccccc",  # loaded statistics values
     "fg_dungeon":      "#888888",  # dungeon level (read-only)
-    "fg_class":        "#aaaaff",  # classe do personagem (preview lateral)
-    "fg_level":        "#888888",  # level/dungeon no preview lateral
+    "fg_class":        "#aaaaff",  # character class (side preview)
+    "fg_level":        "#888888",  # level/dungeon on side preview
 
-    # --- Cores semânticas de jogo ---
-    "tag_enchanted":   "#d4af37",  # itens encantados (dourado)
-    "tag_quest_on":    "#4ec9b0",  # quest flag ativa (verde-azulado)
-    "tag_quest_off":   "#888888",  # quest flag inativa
-    "tag_spell_known": "#aaaaff",  # feitiço conhecido (azul claro)
-    "tag_spell_active":"#88ff88",  # feitiço ativo (verde claro)
-    "tag_summary_hdr": "#ffffff",  # cabeçalho de seção no Summary
-    "tag_summary_val": "#4ec9b0",  # valor no Summary
-    "tag_summary_sep": "#666666",  # separador no Summary
-    "tag_detail_key":  "#555555",  # chave no Detail panel dos critters
-    "tag_detail_val":  "#dddddd",  # valor no Detail panel dos critters
-    "tag_move":        "#4d96ff",  # tipo de movimento (azul)
-    "tag_goal":        "#c586c0",  # goal dos critters (roxo)
-    "tag_state":       "#9cdcfe",  # state dos critters (azul claro)
-    "tag_mouse_primed":"#ffffff",  # mouse-primed spell (branco)
-    "tag_spells_none": "#666666",  # "none active" na magic tab
+    # --- Game semantic colors ---
+    "tag_enchanted":   "#d4af37",  # enchanted items (gold)
+    "tag_quest_on":    "#4ec9b0",  # active quest flag (teal-green)
+    "tag_quest_off":   "#888888",  # inactive quest flag
+    "tag_spell_known": "#aaaaff",  # known spell (light blue)
+    "tag_spell_active":"#88ff88",  # active spell (light green)
+    "tag_summary_hdr": "#ffffff",  # section header in Summary
+    "tag_summary_val": "#4ec9b0",  # value in Summary
+    "tag_summary_sep": "#666666",  # separator in Summary
+    "tag_detail_key":  "#555555",  # key in critter Detail panel
+    "tag_detail_val":  "#dddddd",  # value in critter Detail panel
+    "tag_move":        "#4d96ff",  # movement type (blue)
+    "tag_goal":        "#c586c0",  # critter goal (purple)
+    "tag_state":       "#9cdcfe",  # critter state (light blue)
+    "tag_mouse_primed":"#ffffff",  # mouse-primed spell (white)
+    "tag_spells_none": "#666666",  # "none active" in magic tab
 
-    # --- Atitudes dos critters ---
-    "attitude_hostile":  "#ff6b6b",  # Hostile  — vermelho
-    "attitude_upset":    "#ff9944",  # Upset    — laranja
-    "attitude_mellow":   "#ffd93d",  # Mellow   — amarelo
-    "attitude_friendly": "#6bcb77",  # Friendly — verde
+    # --- Critter attitudes ---
+    "attitude_hostile":  "#ff6b6b",  # Hostile  — red
+    "attitude_upset":    "#ff9944",  # Upset    — orange
+    "attitude_mellow":   "#ffd93d",  # Mellow   — yellow
+    "attitude_friendly": "#6bcb77",  # Friendly — green
 
     # --- Dialogs ---
-    "dialog_spell_fg": "#107c10",  # texto de feitiços na dialog de equipamentos
+    "dialog_spell_fg": "#107c10",  # spell text in equipment dialog
 }
 
 # ---------------------------------------------------------------------------
-# Re-exports do database — fonte única de verdade.
-# Mantidos aqui para retrocompatibilidade com qualquer import legado de
-# src.gui.constants que ainda não foi migrado.
+# Re-exports from database — single source of truth.
+# Kept here for backward compatibility with any legacy imports from
+# src.gui.constants that have not yet been migrated.
 # ---------------------------------------------------------------------------
 from src.core.database.quests   import QUEST_FLAGS, SPELL_DATABASE, SPELL_TABLE, RUNES_LIST
 from src.core.database.critters import ATTITUDE_COLORS
 from src.core.database.skills   import PLAYER_CLASSES as UNDERWORLD_CLASSES
 
 ITEM_ID_TO_SPRITE_BASE = {
-    32: 0,   # Leather Vest -> Começa no 000
-    33: 1,   # Mail Shirt   -> Começa no 001
-    34: 2,   # Breastplate  -> Começa no 002
+    32: 0,   # Leather Vest -> Starts at 000
+    33: 1,   # Mail Shirt   -> Starts at 001
+    34: 2,   # Breastplate  -> Starts at 002
     35: 3,   # Leather Leggings -> 003
     36: 4,   # Mail Leggings    -> 004
     37: 5,   # Plate Leggings   -> 005
@@ -111,7 +111,7 @@ ITEM_ID_TO_SPRITE_BASE = {
     44: 12,  # Leather Cap      -> 012
     45: 13,  # Chain Cowl       -> 013
     46: 14,  # Helmet           -> 014
-    # Itens Especiais (Ignoram o multiplicador de qualidade)
+    # Special Items (Ignore quality multiplier)
     47: 61,  # Crown            -> Sprite 061
 }
 

@@ -12,12 +12,12 @@ class EPlayerClass(Enum):
 
 
 class EAttitude(Enum):
-    """Confirmado pelo fixture: 0=107, 1=39, 2=85, 3=38 critters."""
+    """Confirmed by fixture: 0=107, 1=39, 2=85, 3=38 critters."""
     HOSTILE  = 0;  NEUTRAL  = 1;  FRIENDLY = 2;  ALLY = 3
 
 
 class EWhoAmI(Enum):
-    """EWhoAmI completo extraído da DLL do jogo."""
+    """Complete EWhoAmI extracted from game DLL."""
     Generic = 0; Corby = 1; Shak = 2; Goldthirst = 3; Shanklick = 4
     Eyesnack = 5; Marrowsuck = 6; Ketchaval = 7; Retichall = 8; Vernix = 9
     Lanugo = 10; Thorlson = 11; DornaIronfist = 12; Morlock = 13; DrOwl = 14
@@ -55,7 +55,7 @@ class EWhoAmI(Enum):
 
 
 def whoami_name(whoami_id: int) -> str:
-    """int → nome do NPC; 'NPC#N' se não mapeado."""
+    """int → NPC name; 'NPC#N' if unmapped."""
     try:
         return EWhoAmI(whoami_id).name
     except ValueError:
@@ -75,7 +75,7 @@ NOMES_SKILLS = [
     "Repair", "Charm", "Pickpocket", "Acrobat", "Appraise", "Swimming",
 ]
 
-# Grupos de tipos de objetos para o explorer World Objects
+# Groups of object types for World Objects explorer
 ITEM_TYPE_GROUPS: dict[str, set | None] = {
     "All":        None,
     "Weapons":    {"Weapon", "WeaponBase"},
@@ -90,7 +90,7 @@ ITEM_TYPE_GROUPS: dict[str, set | None] = {
     "Other":      {"Portable", "Ring", "Amulet"},
 }
 
-# Tipos excluídos do explorer (decoração, física, etc.)
+# Types excluded from explorer (decoration, physics, etc.)
 ITEM_TYPES_SKIP = frozenset({
     "BloodStain", "Decal", "Trigger", "UnderCursorHidden",
     "Bones", "Trap", "Door", "UUObject",
@@ -318,7 +318,7 @@ class EObjectType(Enum):
     RunestoneAn     = 233
     RunestoneBet    = 234
     RunestoneCorp   = 235
-    # ... (adicione mais conforme necessário)
+    # ... (add more as needed)
 
     # ==================== MISC / UNKNOWN ====================
     Unk28           = 28
@@ -345,7 +345,7 @@ PROP_ITENS = {
     12 : {"mass": 3.6, "value": 200},   # Black Sword
     13 : {"mass": 2.8, "value": 250},   # Jeweled Sword
     14 : {"mass": 2.8, "value": 250},   # Jeweled Mace
-    15 : {"mass": 0.0, "value": 0},     # Fist (Mão Nua)
+    15 : {"mass": 0.0, "value": 0},     # Fist (Bare Hand)
 
     # === AMMO & PROJECTILES ===
     16 : {"mass": 0.1, "value": 1},     # Sling Stone
@@ -404,29 +404,29 @@ PROP_ITENS = {
     63 : {"mass": 2.5, "value": 200},   # Jeweled Shield
 
     # === CONTAINERS ===
-    128: {"mass": 0.2, "value": 5},     # Sack (Fechada)
+    128: {"mass": 0.2, "value": 5},     # Sack (Closed)
     129: {"mass": 0.2, "value": 5},     # Open Sack
-    130: {"mass": 0.4, "value": 15},    # Pack (Mochila)
+    130: {"mass": 0.4, "value": 15},    # Pack (Backpack)
     131: {"mass": 0.4, "value": 15},    # Open Pack
-    132: {"mass": 1.0, "value": 10},    # Box (Baú pequeno)
+    132: {"mass": 1.0, "value": 10},    # Box (Small Chest)
     133: {"mass": 1.0, "value": 10},    # Open Box
-    134: {"mass": 0.1, "value": 3},     # Pouch (Bolsa)
+    134: {"mass": 0.1, "value": 3},     # Pouch (Bag)
     135: {"mass": 0.1, "value": 3},     # Open Pouch
     136: {"mass": 0.2, "value": 8},     # Map Case
     137: {"mass": 0.2, "value": 8},     # Open Map Case
-    138: {"mass": 2.0, "value": 40},    # Gold Coffer (Cofre)
+    138: {"mass": 2.0, "value": 40},    # Gold Coffer (Safe)
     139: {"mass": 2.0, "value": 40},    # Open Gold Coffer
     140: {"mass": 0.4, "value": 4},     # Urn
-    141: {"mass": 0.4, "value": 12},    # Quiver (Aljava)
+    141: {"mass": 0.4, "value": 12},    # Quiver (Arrow Container)
     142: {"mass": 0.2, "value": 2},     # Bowl
     143: {"mass": 0.2, "value": 25},    # Rune Bag
 
     # === LIGHT SOURCES ===
     144: {"mass": 1.0, "value": 20},    # Lantern (Unlit)
-    145: {"mass": 1.0, "value": 20},    # Lantern (Duplicado)
+    145: {"mass": 1.0, "value": 20},    # Lantern (Duplicate)
     146: {"mass": 0.4, "value": 2},     # Torch (Unlit)
     147: {"mass": 0.1, "value": 4},     # Candle (Unlit)
-    148: {"mass": 0.1, "value": 1},     # Taper (Vela fina)
+    148: {"mass": 0.1, "value": 1},     # Taper (Thin Candle)
     149: {"mass": 1.0, "value": 20},    # Lit Lantern
     150: {"mass": 0.4, "value": 2},     # Lit Torch
     151: {"mass": 0.1, "value": 4},     # Lit Candle
@@ -443,8 +443,8 @@ PROP_ITENS = {
     160: {"mass": 0.2, "value": 20},    # Broken Wand D
 
     # === TREASURES & GEMS ===
-    161: {"mass": 0.0, "value": 1},     # Coin (Moeda individual)
-    162: {"mass": 0.1, "value": 10},    # Gold Nugget/Stack (Moedas)
+    161: {"mass": 0.0, "value": 1},     # Coin (Single Coin)
+    162: {"mass": 0.1, "value": 10},    # Gold Nugget/Stack (Coin Stack)
     163: {"mass": 0.1, "value": 40},    # Ruby
     164: {"mass": 0.1, "value": 25},    # Red Gem
     165: {"mass": 0.1, "value": 15},    # Small Blue Gem
@@ -452,7 +452,7 @@ PROP_ITENS = {
     167: {"mass": 0.1, "value": 50},    # Sapphire
     168: {"mass": 0.1, "value": 45},    # Emerald
     169: {"mass": 0.2, "value": 90},    # Amulet
-    170: {"mass": 0.4, "value": 45},    # Goblet (Taça de ouro)
+    170: {"mass": 0.4, "value": 45},    # Goblet (Gold Cup)
     171: {"mass": 0.8, "value": 120},   # Sceptre
     172: {"mass": 0.2, "value": 75},    # Gold Chain
     173: {"mass": 0.6, "value": 85},    # Gold Plate
@@ -465,12 +465,12 @@ PROP_ITENS = {
     178: {"mass": 0.4, "value": 2},     # Loaf of Bread
     179: {"mass": 0.2, "value": 3},     # Piece of Cheese
     180: {"mass": 0.1, "value": 1},     # Apple
-    181: {"mass": 0.2, "value": 1},     # Ear of Corn (Milho)
+    181: {"mass": 0.2, "value": 1},     # Ear of Corn
     182: {"mass": 0.4, "value": 2},     # Loaf of Bread B
     183: {"mass": 0.3, "value": 2},     # Fish
     184: {"mass": 0.1, "value": 1},     # Popcorn
     185: {"mass": 0.1, "value": 1},     # Mushroom
-    186: {"mass": 0.1, "value": 0},     # Toadstool (Venenoso)
+    186: {"mass": 0.1, "value": 0},     # Toadstool (Poisonous)
     187: {"mass": 0.6, "value": 3},     # Bottle of Ale
     188: {"mass": 0.4, "value": 25},    # Red Potion
     189: {"mass": 0.4, "value": 25},    # Green Potion
@@ -637,7 +637,7 @@ class ETradeResult(IntEnum):
 
 
 def critter_state_label(state_id: int) -> str:
-    """int → label legível de ECritterState."""
+    """int → readable ECritterState label."""
     try:
         return ECritterState(state_id).label
     except ValueError:
@@ -645,7 +645,7 @@ def critter_state_label(state_id: int) -> str:
 
 
 def critter_goal_label(goal_id: int) -> str:
-    """int → label legível de ECritterGoal."""
+    """int → readable ECritterGoal label."""
     try:
         return ECritterGoal(goal_id).label
     except ValueError:
@@ -653,7 +653,7 @@ def critter_goal_label(goal_id: int) -> str:
 
 
 def critter_attitude_label(attitude_id: int) -> str:
-    """int → label legível de ECritterAttitude (da DLL)."""
+    """int → readable ECritterAttitude label (from DLL)."""
     try:
         return ECritterAttitude(attitude_id).label
     except ValueError:
@@ -661,7 +661,7 @@ def critter_attitude_label(attitude_id: int) -> str:
 
 
 def movement_type_label(movement_id: int) -> str:
-    """int → label legível de EMovementType."""
+    """int → readable EMovementType label."""
     try:
         return EMovementType(movement_id).name.capitalize()
     except ValueError:
@@ -669,7 +669,7 @@ def movement_type_label(movement_id: int) -> str:
 
 
 def get_object_name(object_id: int) -> str:
-    """Retorna o nome do objeto ou 'Unknown#ID' se não mapeado."""
+    """Returns object name or 'Unknown#ID' if unmapped."""
     try:
         return EObjectType(object_id).name
     except ValueError:
@@ -677,7 +677,7 @@ def get_object_name(object_id: int) -> str:
 
 
 def get_object_type_by_name(name: str) -> int | None:
-    """Busca o ID pelo nome (case insensitive)."""
+    """Search for ID by name (case insensitive)."""
     norm = name.lower().replace(" ", "").replace("_", "")
     for member in EObjectType:
         if norm in member.name.lower() or member.name.lower() in norm:

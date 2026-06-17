@@ -1,25 +1,25 @@
 # src/core/models/world.py
 """
-CritterModel — wrapper tipado sobre os dicts de critter retornados por
-parse_world(), dando acesso às mesmas edições que critters_tab já faz via
-GameObject, mas com interface de propriedades nomeadas.
+CritterModel — typed wrapper over critter dicts returned by parse_world(),
+providing access to the same edits that critters_tab already does via
+GameObject, but with a named property interface.
 
 Design:
-  - Não faz cópia do dict nem do _node — mutações refletem no save original.
-  - Propriedades read-only espelham os campos do dict (para uso na GUI).
-  - Mutações (hp, attitude, position, revive, kill) delegam para
-    GameObject(_node) exatamente como critters_tab já faz hoje, garantindo
-    que existe apenas UM caminho de escrita.
-  - O dict original ainda pode ser acessado via .raw para compatibilidade
-    com código existente de treeview/filtros que lê c["hp"], c["attitude"] etc.
+  - Does not copy dict or _node — mutations reflect in original save.
+  - Read-only properties mirror dict fields (for GUI use).
+  - Mutations (hp, attitude, position, revive, kill) delegate to
+    GameObject(_node) exactly as critters_tab already does today, ensuring
+    there is only ONE write path.
+  - The original dict can still be accessed via .raw for compatibility
+    with existing treeview/filter code that reads c["hp"], c["attitude"] etc.
 
-Uso:
+Usage:
     critters, _ = save_game.parse_world()
     cm = CritterModel(critters[0])
     cm.name          → "Troll"
     cm.hp            → 54
-    cm.hp = 10       # escreve via GameObject + atualiza o dict interno
-    cm.kill()        # marca morto em _node + atualiza dict
+    cm.hp = 10       # write via GameObject + update internal dict
+    cm.kill()        # mark dead in _node + update dict
     cm.attitude = 3  # 0=Hostile … 3=Friendly
 """
 from __future__ import annotations
@@ -32,18 +32,18 @@ logger = logging.getLogger("core.models.world")
 
 class CritterModel:
     """
-    Wrapper tipado sobre um dict de critter produzido por parse_world().
+    Typed wrapper over a critter dict produced by parse_world().
 
-    Parâmetro:
-        critter_dict — o dict retornado em critters[i] por parse_world().
-                       Deve conter "_node" (referência ao nó raw do save).
+    Parameter:
+        critter_dict — the dict returned in critters[i] by parse_world().
+                       Must contain "_node" (reference to save raw node).
     """
 
     def __init__(self, critter_dict: dict) -> None:
-        self._d    = critter_dict          # o dict de leitura (GUI / treeview)
-        self._node = critter_dict["_node"] # nó raw do save (escrita via GameObject)
+        self._d    = critter_dict          # read dict (GUI / treeview)
+        self._node = critter_dict["_node"] # save raw node (write via GameObject)
 
-    # — Acesso ao dict raw (compatibilidade com código existente) —
+    # — Raw dict access (compatibility with existing code) —
     @property
     def raw(self) -> dict:
         return self._d

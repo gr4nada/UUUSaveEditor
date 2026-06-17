@@ -1,5 +1,5 @@
 # src/core/models/player.py
-"""PlayerModel — wrapper tipado sobre playerData do save."""
+"""PlayerModel — typed wrapper over playerData from save."""
 from __future__ import annotations
 import logging
 
@@ -13,18 +13,18 @@ logger = logging.getLogger("core.models.player")
 
 class PlayerModel:
     """
-    Wrapper tipado sobre playerData.
+    Typed wrapper over playerData.
 
-    Uso:
+    Usage:
         model = PlayerModel(raw_save["playerData"])
-        model.hp           # lê
-        model.hp = 999     # escreve de volta no dict original
+        model.hp           # read
+        model.hp = 999     # write back to original dict
     """
 
     def __init__(self, player_data: dict) -> None:
         self._p = player_data
 
-    # — Identidade —
+    # — Identity —
     @property
     def name(self) -> str:       return self._p.get("playerName", "Avatar")
     @name.setter
@@ -61,7 +61,7 @@ class PlayerModel:
         lo, hi = FIELD_LIMITS["portrait"]
         self._p["portrait"] = _validate("portrait", int(v), lo, hi)
 
-    # — Atributos —
+    # — Attributes —
     @property
     def level(self) -> int:      return int(self._p.get("charLevel", 0))
     @level.setter

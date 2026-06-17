@@ -1,21 +1,21 @@
 # src/core/object_dictionary.py
 """
-Dicionário de object_type → informação semântica.
+Object type → semantic information mapping.
 
-Resolve números mágicos em nomes legíveis para a GUI.
-Fonte: Ultima Codex, CritterSaveData DLL, observação do save.
+Resolves magic numbers into readable names for GUI.
+Source: Ultima Codex, CritterSaveData DLL, save observation.
 
-Estrutura de cada entrada:
+Structure of each entry:
     {
-        "name":     str,   — nome exibido na UI
-        "category": str,   — agrupamento para filtros
-        "icon":     str,   — emoji para a treeview
+        "name":     str,   — name displayed in UI
+        "category": str,   — grouping for filters
+        "icon":     str,   — emoji for treeview
     }
 """
 from __future__ import annotations
 
 # ---------------------------------------------------------------------------
-# Mapeamento objectType (int) → metadados
+# Object type (int) → metadata mapping
 # ---------------------------------------------------------------------------
 
 _OBJECT_DB: dict[int, dict] = {
@@ -124,7 +124,7 @@ _OBJECT_DB: dict[int, dict] = {
     98:  {"name": "Sorceress",       "category": "Critter", "icon": "👾"},
 }
 
-# Prefixos de categoria para busca rápida
+# Category prefixes for fast lookup
 _CATEGORY_ICONS = {
     "Weapon":    "⚔",
     "Armour":    "🛡",
@@ -139,9 +139,9 @@ _CATEGORY_ICONS = {
 
 def lookup(object_type: int) -> dict:
     """
-    Retorna metadados do objectType, ou um fallback genérico.
+    Returns metadata for object type, or a generic fallback.
 
-    Retorno: {"name": str, "category": str, "icon": str}
+    Return: {"name": str, "category": str, "icon": str}
     """
     return _OBJECT_DB.get(object_type, {
         "name":     f"Object#{object_type}",
@@ -152,12 +152,12 @@ def lookup(object_type: int) -> dict:
 
 def resolve_name(object_type: int, object_name: str, type_name: str = "") -> str:
     """
-    Retorna o melhor nome disponível para um objeto.
+    Returns the best available name for an object.
 
-    Prioridade:
-      1. objectName do save (se não vazio)
-      2. Dicionário interno (object_dictionary)
-      3. objectTypeName do save (se não vazio)
+    Priority:
+      1. objectName from save (if not empty)
+      2. Internal dictionary (object_dictionary)
+      3. objectTypeName from save (if not empty)
       4. "Object#N"
     """
     if object_name and object_name.strip():
@@ -171,7 +171,7 @@ def resolve_name(object_type: int, object_name: str, type_name: str = "") -> str
 
 
 def resolve_icon(object_type: int, type_name: str = "") -> str:
-    """Retorna o ícone unicode para o objectType."""
+    """Returns the unicode icon for the object type."""
     entry = _OBJECT_DB.get(object_type)
     if entry:
         return entry["icon"]
@@ -179,5 +179,5 @@ def resolve_icon(object_type: int, type_name: str = "") -> str:
 
 
 def all_categories() -> list[str]:
-    """Lista de categorias únicas no dicionário."""
+    """List of unique categories in the dictionary."""
     return sorted({v["category"] for v in _OBJECT_DB.values()})
